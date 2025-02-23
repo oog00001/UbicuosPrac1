@@ -1,74 +1,97 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { Card, Title } from 'react-native-paper';
+import { Accelerometer, Magnetometer } from 'expo-sensors';
+import * as Location from 'expo-location';
+import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { db, addDoc, collection } from './firebaseConfig';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+export default function SensorsScreen() {
+  const [accelData, setAccelData] = useState({ x: 0, y: 0, z: 0 });
+  const [magData, setMagData] = useState({ x: 0, y: 0, z: 0 });
+  const [location, setLocation] = useState(null);
 
-export default function HomeScreen() {
+  useEffect(() => {
+    const fetchData = async () => {
+      Accelerometer.getLatestUpdate().then(data => setAccelData(data));
+      Magnetometer.getLatestUpdate().then(data => setMagData(data));
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        let loc = await Location.getCurrentPositionAsync({});
+        setLocation(loc.coords);
+      }
+
+      // Enviar datos a Firebase
+      try {
+        await addDoc(collection(db, "sensor_data"), {
+          accelerometer: accelData,
+          magnetometer: magData,
+          location: location,
+          timestamp: new Date()
+        });
+      } catch (error) {
+        console.error("Error al enviar datos a Firebase: ", error);
+      }
+    };
+    
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <ScrollView style={styles.container}>
+      <Text style={styles.header}>Sensores</Text>
+
+      {/* Acelerómetro */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Title><FontAwesome5 name="accelerometer" size={20} /> Acelerómetro</Title>
+          <Text>X: {accelData.x.toFixed(2)} m/s²</Text>
+          <Text>Y: {accelData.y.toFixed(2)} m/s²</Text>
+          <Text>Z: {accelData.z.toFixed(2)} m/s²</Text>
+        </Card.Content>
+      </Card>
+
+      {/* Campo Magnético */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Title><MaterialIcons name="magnet-on" size={20} /> Campo Geomagnético</Title>
+          <Text>X: {magData.x.toFixed(2)} μT</Text>
+          <Text>Y: {magData.y.toFixed(2)} μT</Text>
+          <Text>Z: {magData.z.toFixed(2)} μT</Text>
+        </Card.Content>
+      </Card>
+
+      {/* Ubicación */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Title><Ionicons name="location" size={20} /> Ubicación</Title>
+          {location ? (
+            <>
+              <Text>Latitud: {location.latitude.toFixed(4)}</Text>
+              <Text>Longitud: {location.longitude.toFixed(4)}</Text>
+              <Text>Altitud: {location.altitude ? location.altitude.toFixed(2) : 'N/A'} m</Text>
+            </>
+          ) : (
+            <Text>Cargando...</Text>
+          )}
+        </Card.Content>
+      </Card>
+
+      {/* Contador de pasos */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Title><FontAwesome5 name="walking" size={20} /> Contador de pasos</Title>
+          <Text>0 pasos</Text>
+        </Card.Content>
+      </Card>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  container: { flex: 1, backgroundColor: '#e0e0ff', padding: 10 },
+  header: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginVertical: 10 },
+  card: { marginVertical: 5, padding: 10, backgroundColor: 'white' },
 });
