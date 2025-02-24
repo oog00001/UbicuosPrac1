@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Card, Title } from 'react-native-paper';
-import { Accelerometer, Magnetometer, Gyroscope } from 'expo-sensors';
+import { Accelerometer, Magnetometer, Gyroscope, Pedometer, DeviceMotion } from 'expo-sensors';
 import * as Location from 'expo-location';
-import * as Pedometer from 'expo-sensors';
 import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { db, addDoc, collection } from './firebaseConfig';
 import { useNavigation } from '@react-navigation/native';
@@ -17,14 +16,19 @@ export default function SensorsScreen() {
   const navigation = useNavigation();
   const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
 
+  const [gravity, setGravity] = useState({ x: 0, y: 0, z: 0 });
+  const [accelDataLineal, setAccelDataLineal] = useState({ x: 0, y: 0, z: 0 });
+  const [vectorRotacionData, setVectorRotacionData] = useState({ alpha: 0, beta: 0, gamma: 0 });
+  const [orientation, setOrientation] = useState({ yaw: 0, pitch: 0, roll: 0 });
+
   const accelSubscriptionRef = useRef<any>(null);
   const magSubscriptionRef = useRef<any>(null);
   const stepSubscriptionRef = useRef<any>(null);
   const gyroSubscriptionRef = useRef<any>(null);
+  const vectorRotationRef = useRef<any>(null);
 
 
   useEffect(() => {
-
 
 
     const fetchData = async () => {  
@@ -53,14 +57,12 @@ export default function SensorsScreen() {
 
 
       //contador pasos
-      const isAvailablePedometer = await Pedometer.Pedometer.isAvailableAsync();
+      const isAvailablePedometer = await Pedometer.isAvailableAsync();
       if (isAvailablePedometer) {
-        stepSubscriptionRef.current = Pedometer.Pedometer.watchStepCount((result) => {
+        stepSubscriptionRef.current = Pedometer.watchStepCount((result) => {
           setSteps(result.steps);
         });
       }
-
-      //Orientacion
 
       //Giroscopio
       Gyroscope.setUpdateInterval(5000);
@@ -69,13 +71,24 @@ export default function SensorsScreen() {
       });
 
       //luz
+
       //Proximidad
-      //Gravedad
-      //Aceleracion lineal
+
       //Vector de rotacion
+     /* DeviceMotion.setUpdateInterval(5000);
+      vectorRotationRef.current = DeviceMotion.addListener((data) => {
+        setVectorRotacionData(data.rotation); 
+      });*/
+
       //Fecha y hora
+
       //bateria
+
       //internet
+
+
+
+
 
       //enviar a firebase
     /*
@@ -101,9 +114,31 @@ export default function SensorsScreen() {
       if (magSubscriptionRef.current) magSubscriptionRef.current.remove();
       if (stepSubscriptionRef.current) stepSubscriptionRef.current.remove();
       if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
+      if (vectorRotationRef.current) vectorRotationRef.current.remove();
     };
 
   }, []);
+
+  useEffect(() => {
+    //actualizar la gravedad
+    setGravity({ x: accelData.x, y: accelData.y, z: accelData.z - 9.81 });
+    setAccelDataLineal({  x: accelData.x - gravity.x, y: accelData.y - gravity.y, z: accelData.z - gravity.z });
+  }, [accelData]); // Se ejecuta cada vez que accelData cambie
+
+  useEffect(() => {
+    //orientacion
+    if (accelData && magData) {
+      const pitch = Math.atan2(accelData.y, Math.sqrt(accelData.x * accelData.x + accelData.z * accelData.z));
+      const roll = Math.atan2(-accelData.x, accelData.z);
+      const yaw = Math.atan2(magData.y, magData.x);
+
+      setOrientation({
+        yaw: yaw * (180 / Math.PI), // Convertir de radianes a grados
+        pitch: pitch * (180 / Math.PI), // Convertir de radianes a grados
+        roll: roll * (180 / Math.PI), // Convertir de radianes a grados
+      });
+    }
+  }, [accelData, magData]);
 
 
   return (
@@ -169,9 +204,9 @@ export default function SensorsScreen() {
         <Card style={styles.card}>
           <Card.Content>
           <Title><FontAwesome5 name="compass" size={20} /> Orientacion</Title>
-            <Text>X:  º</Text>
-            <Text>Y:  º</Text>
-            <Text>Z: º</Text>
+            <Text>Yaw: {orientation.yaw.toFixed(2)}°</Text>
+            <Text>Pitch: {orientation.pitch.toFixed(2)}°</Text>
+            <Text>Roll: {orientation.roll.toFixed(2)}°</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -213,9 +248,9 @@ export default function SensorsScreen() {
         <Card style={styles.card}>
           <Card.Content>
           <Title><FontAwesome5 name="cloud-sun" size={20} /> Gravedad</Title>
-            <Text>X:  m/s²</Text>
-            <Text>Y:  m/s²</Text>
-            <Text>Z:  m/s²</Text>
+            <Text>X: {gravity.x}  m/s²</Text>
+            <Text>Y: {gravity.y}m/s²</Text>
+            <Text>Z: {gravity.z} m/s²</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -225,9 +260,9 @@ export default function SensorsScreen() {
         <Card style={styles.card}>
           <Card.Content>
           <Title><FontAwesome5 name="arrow-right" size={20} /> Aceleracion lineal</Title>
-            <Text>X:  m/s²</Text>
-            <Text>Y:  m/s²</Text>
-            <Text>Z:  m/s²</Text>
+            <Text>X: {accelDataLineal.x}  m/s²</Text>
+            <Text>Y: {accelDataLineal.y} m/s²</Text>
+            <Text>Z: {accelDataLineal.z} m/s²</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -237,9 +272,9 @@ export default function SensorsScreen() {
         <Card style={styles.card}>
           <Card.Content>
           <Title><FontAwesome5 name="sync" size={20} />  Vector de rotacion</Title>
-            <Text>X:  </Text>
-            <Text>Y:  </Text>
-            <Text>Z:  </Text>
+            <Text>Yaw (Z - Alfa): {vectorRotacionData.alpha.toFixed(2)}°/s</Text>
+            <Text>Pitch (X - Beta): {vectorRotacionData.beta.toFixed(2)}°/s</Text>
+            <Text>Roll (Y - Gamma): {vectorRotacionData.gamma.toFixed(2)}°/s</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
