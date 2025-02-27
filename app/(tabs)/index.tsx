@@ -7,19 +7,31 @@ import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { db, addDoc, collection } from './firebaseConfig';
 import { useNavigation } from '@react-navigation/native';
 import { TouchableOpacity } from 'react-native';
+import * as Battery from 'expo-battery';
+import * as Network from 'expo-network';
 
 export default function SensorsScreen() {
+  const [dateTime, setDateTime] = useState(new Date());
   const [accelData, setAccelData] = useState({ x: 0, y: 0, z: 0 });
   const [magData, setMagData] = useState({ x: 0, y: 0, z: 0 });
   const [location, setLocation] = useState({ latitude: 0, longitude: 0, altitude: 0 });
-  const [steps, setSteps] = useState(0);
+  const [isPedometerAvailable, setIsPedometerAvailable] = useState('checking');
+  const [pastStepCount, setPastStepCount] = useState(0);
+  const [currentStepCount, setCurrentStepCount] = useState(0);
   const navigation = useNavigation();
   const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
+  const [ipData, setIpData] = useState('');
+  const [tipoConexion, setTipoConexion] = useState('');
+  const [conexion, setConexion] = useState('');
+
 
   const [gravity, setGravity] = useState({ x: 0, y: 0, z: 0 });
+  const [batteryLevel, setBatteryLevel] = useState(0);
+  const [batteryState, setBatteryState] = useState(0);
+  const [lowPowerMode, setLowPowerMode] = useState(false);
   const [accelDataLineal, setAccelDataLineal] = useState({ x: 0, y: 0, z: 0 });
   const [vectorRotacionData, setVectorRotacionData] = useState({ alpha: 0, beta: 0, gamma: 0 });
-  const [orientation, setOrientation] = useState({ yaw: 0, pitch: 0, roll: 0 });
+  const [orientation, setOrientation] = useState({ alpha: 0, beta: 0, gamma: 0 });
 
   const accelSubscriptionRef = useRef<any>(null);
   const magSubscriptionRef = useRef<any>(null);
@@ -27,22 +39,50 @@ export default function SensorsScreen() {
   const gyroSubscriptionRef = useRef<any>(null);
   const vectorRotationRef = useRef<any>(null);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDateTime(new Date());
+    }, 1000); // Actualiza cada segundo
+
+    return () => clearInterval(interval); // Limpieza al desmontar
+  }, []);
+
+  const subscribe = async () => {
+    const isAvailable = await Pedometer.isAvailableAsync();
+    setIsPedometerAvailable(String(isAvailable));
+
+    if (isAvailable) {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 1);
+
+      const pastStepCountResult = await Pedometer.getStepCountAsync(start, end);
+      if (pastStepCountResult) {
+        setPastStepCount(pastStepCountResult.steps);
+      }
+
+      return Pedometer.watchStepCount(result => {
+        setCurrentStepCount(result.steps);
+      });
+    }
+  };
+
 
   useEffect(() => {
 
 
-    const fetchData = async () => {  
+    const fetchData = async () => {
       //  Acelerómetro
-    Accelerometer.setUpdateInterval(5000);
-    accelSubscriptionRef.current = Accelerometer.addListener((data) => {
-      setAccelData(data);
-    });
+      Accelerometer.setUpdateInterval(500);
+      accelSubscriptionRef.current = Accelerometer.addListener((data) => {
+        setAccelData(data);
+      });
 
-    //  Magnetómetro
-    Magnetometer.setUpdateInterval(5000);
-    magSubscriptionRef.current = Magnetometer.addListener((data) => {
-      setMagData(data);
-    });
+      //  Magnetómetro
+      Magnetometer.setUpdateInterval(500);
+      magSubscriptionRef.current = Magnetometer.addListener((data) => {
+        setMagData(data);
+      });
 
       //ubicacion
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -55,90 +95,81 @@ export default function SensorsScreen() {
         });
       }
 
-
-      //contador pasos
-      const isAvailablePedometer = await Pedometer.isAvailableAsync();
-      if (isAvailablePedometer) {
-        stepSubscriptionRef.current = Pedometer.watchStepCount((result) => {
-          setSteps(result.steps);
-        });
-      }
-
       //Giroscopio
-      Gyroscope.setUpdateInterval(5000);
+      Gyroscope.setUpdateInterval(500);
       gyroSubscriptionRef.current = Gyroscope.addListener((data) => {
         setGyroData(data);
       });
 
-      //luz
 
-      //Proximidad
 
-      //Vector de rotacion
-     /* DeviceMotion.setUpdateInterval(5000);
-      vectorRotationRef.current = DeviceMotion.addListener((data) => {
-        setVectorRotacionData(data.rotation); 
-      });*/
 
-      //Fecha y hora
+      //Orientacion, gravedad y vector de rotacion
+      const isAvailable = await DeviceMotion.isAvailableAsync();
+      if(isAvailable){
+        DeviceMotion.setUpdateInterval(500);
+        vectorRotationRef.current = DeviceMotion.addListener((data) => {
+          if (data.rotation)  setOrientation(data.rotation);
+          if(data.accelerationIncludingGravity) setGravity(data.accelerationIncludingGravity);
+          if(data.rotationRate) setVectorRotacionData(data.rotationRate);
+        });
+      }
 
-      //bateria
-
-      //internet
 
 
 
 
 
       //enviar a firebase
-    /*
-      try {
-        await addDoc(collection(db, "sensor_data"), {
-          timestamp: new Date(),
-          accelerometer: accelData,
-          magnetometer: magData,
-          location: location,
-          steps: steps
-        });
-        console.log("Datos enviados a Firebase");
-      } catch (error) {
-        console.error("Error al enviar datos: ", error);
-      }
-    */
+      /*
+        try {
+          await addDoc(collection(db, "sensor_data"), {
+            timestamp: new Date(),
+            accelerometer: accelData,
+            magnetometer: magData,
+            location: location,
+            steps: steps
+          });
+          console.log("Datos enviados a Firebase");
+        } catch (error) {
+          console.error("Error al enviar datos: ", error);
+        }
+      */
+      //contador de pasos
+      const subscription = subscribe();
+      return () => {
+        clearInterval(interval);
+        if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
+        if (magSubscriptionRef.current) magSubscriptionRef.current.remove();
+        if (stepSubscriptionRef.current) stepSubscriptionRef.current.remove();
+        if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
+        if (vectorRotationRef.current) vectorRotationRef.current.remove();
+        subscription;
+      };
 
     };
     const interval = setInterval(fetchData, 5000);
-    return () => {
-      clearInterval(interval);
-      if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
-      if (magSubscriptionRef.current) magSubscriptionRef.current.remove();
-      if (stepSubscriptionRef.current) stepSubscriptionRef.current.remove();
-      if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
-      if (vectorRotationRef.current) vectorRotationRef.current.remove();
-    };
+
 
   }, []);
 
   useEffect(() => {
-    //actualizar la gravedad
-    setGravity({ x: accelData.x, y: accelData.y, z: accelData.z - 9.81 });
-    setAccelDataLineal({  x: accelData.x - gravity.x, y: accelData.y - gravity.y, z: accelData.z - gravity.z });
-  }, [accelData]); // Se ejecuta cada vez que accelData cambie
+    //actualizar  aceleracion lineal
+    setAccelDataLineal({ x: accelData.x - gravity.x, y: accelData.y - gravity.y, z: accelData.z - gravity.z });
+    const fetchBattery = async () => {
+      //bateria
+      setBatteryLevel(await Battery.getBatteryLevelAsync() * 100);
+      setBatteryState(await Battery.getBatteryStateAsync());
+      setLowPowerMode(await Battery.isLowPowerModeEnabledAsync());
 
-  useEffect(() => {
-    //orientacion
-    if (accelData && magData) {
-      const pitch = Math.atan2(accelData.y, Math.sqrt(accelData.x * accelData.x + accelData.z * accelData.z));
-      const roll = Math.atan2(-accelData.x, accelData.z);
-      const yaw = Math.atan2(magData.y, magData.x);
-
-      setOrientation({
-        yaw: yaw * (180 / Math.PI), // Convertir de radianes a grados
-        pitch: pitch * (180 / Math.PI), // Convertir de radianes a grados
-        roll: roll * (180 / Math.PI), // Convertir de radianes a grados
-      });
+      //internet
+      setIpData(await Network.getIpAddressAsync());
+      const tipoCon = await Network.getNetworkStateAsync();
+      setTipoConexion(String(tipoCon.type));
+      setConexion(String(tipoCon.isConnected));
     }
-  }, [accelData, magData]);
+    fetchBattery();
+  }, [accelData,gravity]); // Se ejecuta cada vez que accelData cambie
 
 
   return (
@@ -149,10 +180,19 @@ export default function SensorsScreen() {
       <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-          <Title><FontAwesome5 name="drafting-compass" size={20} /> Acelerómetro</Title>
-            <Text>X: {accelData.x.toFixed(2)} m/s²</Text>
-            <Text>Y: {accelData.y.toFixed(2)} m/s²</Text>
-            <Text>Z: {accelData.z.toFixed(2)} m/s²</Text>
+            {/* Contenedor para el título y la flecha */}
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="drafting-compass" size={20} />
+                <Title style={styles.titleText}>Acelerómetro</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+
+            {/* Datos del acelerómetro */}
+            <Text>X: {accelData.x * 10} m/s²</Text>
+            <Text>Y: {accelData.y * 10} m/s²</Text>
+            <Text>Z: {accelData.z * 10} m/s²</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -161,10 +201,16 @@ export default function SensorsScreen() {
       <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-          <Title><FontAwesome5 name="magnet" size={20} /> Campo Geomagnético</Title>
-            <Text>X: {magData.x.toFixed(2)} μT</Text>
-            <Text>Y: {magData.y.toFixed(2)} μT</Text>
-            <Text>Z: {magData.z.toFixed(2)} μT</Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="magnet" size={20} />
+                <Title style={styles.titleText}>Campo Geomagnético</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+            <Text>X: {magData.x} μT</Text>
+            <Text>Y: {magData.y} μT</Text>
+            <Text>Z: {magData.z} μT</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -173,12 +219,18 @@ export default function SensorsScreen() {
       <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-            <Title><Ionicons name="location" size={20} /> Ubicación</Title>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <Ionicons name="location" size={20} />
+                <Title style={styles.titleText}>Ubicación</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
             {location ? (
               <>
                 <Text>Latitud: {location.latitude.toFixed(4)}</Text>
                 <Text>Longitud: {location.longitude.toFixed(4)}</Text>
-                <Text>Altitud: {location.altitude !== "N/A" ? `${location.altitude.toFixed(2)} m` : "N/A"}</Text>
+                <Text>Altitud: {location.altitude !== "N/A" ? `${location.altitude.toFixed(4)} m` : "N/A"}</Text>
               </>
             ) : (
               <Text>Cargando...</Text>
@@ -191,75 +243,85 @@ export default function SensorsScreen() {
       <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-            <Title><FontAwesome5 name="walking" size={20} /> Contador de pasos</Title>
-            <Text>{steps} pasos</Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="walking" size={20} />
+                <Title style={styles.titleText}>Contador de pasos</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+            <Text>{pastStepCount} pasos</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
 
 
 
-     {/* Orientacion */}
-     <TouchableOpacity onPress={() => navigation.navigate("explore")}>
+      {/* Orientacion */}
+      <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-          <Title><FontAwesome5 name="compass" size={20} /> Orientacion</Title>
-            <Text>Yaw: {orientation.yaw.toFixed(2)}°</Text>
-            <Text>Pitch: {orientation.pitch.toFixed(2)}°</Text>
-            <Text>Roll: {orientation.roll.toFixed(2)}°</Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="compass" size={20} />
+                <Title style={styles.titleText}>Orientación</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+            <Text>X: {orientation.beta.toFixed(4)}°</Text>
+            <Text>Y: {orientation.gamma.toFixed(4)}°</Text>
+            <Text>Z: {orientation.alpha.toFixed(4)}°</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
 
       {/* giroscopio */}
-     <TouchableOpacity onPress={() => navigation.navigate("explore")}>
-        <Card style={styles.card}>
-          <Card.Content>
-          <Title><FontAwesome5 name="spinner" size={20} /> Giroscopio</Title>
-            <Text>X: {gyroData.x.toFixed(2)}  rad/s</Text>
-            <Text>Y: {gyroData.y.toFixed(2)}  rad/s</Text>
-            <Text>Z: {gyroData.z.toFixed(2)} rad/s</Text>
-          </Card.Content>
-        </Card>
-      </TouchableOpacity>
-
-      {/* luz*/}
       <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-            <Title><FontAwesome5 name="lightbulb" size={20} /> Luz</Title>
-            <Text> lx</Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="spinner" size={20} />
+                <Title style={styles.titleText}>Giroscopio</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+            <Text>X: {gyroData.x.toFixed(5)}  rad/s</Text>
+            <Text>Y: {gyroData.y.toFixed(5)}  rad/s</Text>
+            <Text>Z: {gyroData.z.toFixed(5)} rad/s</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
 
-      {/* Proximidad*/}
+      {/* Gravedad */}
       <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-            <Title><FontAwesome5 name="hand-paper" size={20} /> Proximidad</Title>
-            <Text> cm</Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="cloud-sun" size={20} />
+                <Title style={styles.titleText}>Gravedad</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+            <Text>X: {gravity.x.toFixed(5)}  m/s²</Text>
+            <Text>Y: {gravity.y.toFixed(5)}m/s²</Text>
+            <Text>Z: {gravity.z.toFixed(5)} m/s²</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
 
-      {/* Grabedad */}
-     <TouchableOpacity onPress={() => navigation.navigate("explore")}>
+      {/* Aceleracion lineal */}
+      <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-          <Title><FontAwesome5 name="cloud-sun" size={20} /> Gravedad</Title>
-            <Text>X: {gravity.x}  m/s²</Text>
-            <Text>Y: {gravity.y}m/s²</Text>
-            <Text>Z: {gravity.z} m/s²</Text>
-          </Card.Content>
-        </Card>
-      </TouchableOpacity>
-
-       {/* Aceleracion lineal */}
-     <TouchableOpacity onPress={() => navigation.navigate("explore")}>
-        <Card style={styles.card}>
-          <Card.Content>
-          <Title><FontAwesome5 name="arrow-right" size={20} /> Aceleracion lineal</Title>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="arrow-right" size={20} />
+                <Title style={styles.titleText}>Aceleración lineal</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
             <Text>X: {accelDataLineal.x}  m/s²</Text>
             <Text>Y: {accelDataLineal.y} m/s²</Text>
             <Text>Z: {accelDataLineal.z} m/s²</Text>
@@ -267,14 +329,20 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-       {/* Vector de rotacion */}
-     <TouchableOpacity onPress={() => navigation.navigate("explore")}>
+      {/* Vector de rotacion */}
+      <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-          <Title><FontAwesome5 name="sync" size={20} />  Vector de rotacion</Title>
-            <Text>Yaw (Z - Alfa): {vectorRotacionData.alpha.toFixed(2)}°/s</Text>
-            <Text>Pitch (X - Beta): {vectorRotacionData.beta.toFixed(2)}°/s</Text>
-            <Text>Roll (Y - Gamma): {vectorRotacionData.gamma.toFixed(2)}°/s</Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="sync" size={20} />
+                <Title style={styles.titleText}>Vector de rotación</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+            <Text>X: {vectorRotacionData.beta.toFixed(2)}°/s</Text>
+            <Text>Y: {vectorRotacionData.gamma.toFixed(2)}°/s</Text>
+            <Text>Z: {vectorRotacionData.alpha.toFixed(2)}°/s</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -284,31 +352,43 @@ export default function SensorsScreen() {
         <Card style={styles.card}>
           <Card.Content>
             <Title><FontAwesome5 name="clock" size={20} /> Fecha y hora</Title>
-            <Text> </Text>
+            <Text>{dateTime.toLocaleDateString()} {dateTime.toLocaleTimeString()}</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
 
       {/* Bateria */}
-     <TouchableOpacity onPress={() => navigation.navigate("explore")}>
+      <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-          <Title><FontAwesome5 name="battery-half" size={20} />  Bateria</Title>
-            <Text>Nivel:  %</Text>
-            <Text>Estado:  </Text>
-            <Text>Ahorro de energia:  </Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="battery-half" size={20} />
+                <Title style={styles.titleText}>Batería</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+            <Text>Nivel: {Math.floor(batteryLevel)}%</Text>
+            <Text>Estado: {batteryState} </Text>
+            <Text>Ahorro de energia: {String(lowPowerMode)} </Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
 
       {/* Internet */}
-     <TouchableOpacity onPress={() => navigation.navigate("explore")}>
+      <TouchableOpacity onPress={() => navigation.navigate("explore")}>
         <Card style={styles.card}>
           <Card.Content>
-          <Title><FontAwesome5 name="wifi" size={20} />  Internet</Title>
-            <Text>Conexion:  %</Text>
-            <Text>Tipo de conexion:  </Text>
-            <Text>IP:  </Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleContent}>
+                <FontAwesome5 name="wifi" size={20} />
+                <Title style={styles.titleText}>Internet</Title>
+              </View>
+              <FontAwesome5 name="arrow-right" size={20} />
+            </View>
+            <Text>Conexion: {conexion} </Text>
+            <Text>Tipo de conexión: {tipoConexion} </Text>
+            <Text>Dirección IP: {ipData} </Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -327,6 +407,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#e0e0ff', padding: 10 },
   header: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginVertical: 10 },
   card: { marginVertical: 5, padding: 10, backgroundColor: 'white' },
+  titleContainer: {
+    flexDirection: "row", // Alinea en fila
+    justifyContent: "space-between", // Espaciado entre elementos
+    alignItems: "center", // Alinea verticalmente
+  },
+  titleContent: {
+    flexDirection: "row", // Ícono y texto en fila
+    alignItems: "center",
+  },
+  titleText: {
+    marginLeft: 8, // Espacio entre el icono y el texto
+  },
 });
 
 
