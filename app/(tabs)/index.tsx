@@ -31,7 +31,7 @@ export default function SensorsScreen() {
   const [lowPowerMode, setLowPowerMode] = useState(false);
   const [accelDataLineal, setAccelDataLineal] = useState({ x: 0, y: 0, z: 0 });
   const [vectorRotacionData, setVectorRotacionData] = useState({ alpha: 0, beta: 0, gamma: 0 });
-  const [orientation, setOrientation] = useState({ yaw: 0, pitch: 0, roll: 0 });
+  const [orientation, setOrientation] = useState({ alpha: 0, beta: 0, gamma: 0 });
 
   const accelSubscriptionRef = useRef<any>(null);
   const magSubscriptionRef = useRef<any>(null);
@@ -102,13 +102,18 @@ export default function SensorsScreen() {
       });
 
 
-      //Vector de rotacion
-      /* DeviceMotion.setUpdateInterval(5000);
-       vectorRotationRef.current = DeviceMotion.addListener((data) => {
-         setVectorRotacionData(data.rotation); 
-       });*/
 
-      //Fecha y hora
+
+      //Orientacion, gravedad y vector de rotacion
+      const isAvailable = await DeviceMotion.isAvailableAsync();
+      if(isAvailable){
+        DeviceMotion.setUpdateInterval(500);
+        vectorRotationRef.current = DeviceMotion.addListener((data) => {
+          if (data.rotation)  setOrientation(data.rotation);
+          if(data.accelerationIncludingGravity) setGravity(data.accelerationIncludingGravity);
+          if(data.rotationRate) setVectorRotacionData(data.rotationRate);
+        });
+      }
 
 
 
@@ -148,8 +153,7 @@ export default function SensorsScreen() {
   }, []);
 
   useEffect(() => {
-    //actualizar la gravedad y aceleracion lineal
-    setGravity({ x: accelData.x, y: accelData.y - 9.81, z: accelData.z });
+    //actualizar  aceleracion lineal
     setAccelDataLineal({ x: accelData.x - gravity.x, y: accelData.y - gravity.y, z: accelData.z - gravity.z });
     const fetchBattery = async () => {
       //bateria
@@ -164,22 +168,7 @@ export default function SensorsScreen() {
       setConexion(String(tipoCon.isConnected));
     }
     fetchBattery();
-  }, [accelData]); // Se ejecuta cada vez que accelData cambie
-
-  useEffect(() => {
-    //orientacion
-    if (accelData && magData) {
-      const pitch = Math.atan2(accelData.y, Math.sqrt(accelData.x * accelData.x + accelData.z * accelData.z));
-      const roll = Math.atan2(-accelData.x, accelData.z);
-      const yaw = Math.atan2(magData.y, magData.x);
-
-      setOrientation({
-        yaw: yaw * (180 / Math.PI), // Convertir de radianes a grados
-        pitch: pitch * (180 / Math.PI), // Convertir de radianes a grados
-        roll: roll * (180 / Math.PI), // Convertir de radianes a grados
-      });
-    }
-  }, [accelData, magData]);
+  }, [accelData,gravity]); // Se ejecuta cada vez que accelData cambie
 
 
   return (
@@ -278,9 +267,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name="arrow-right" size={20} />
             </View>
-            <Text>Yaw: {orientation.yaw.toFixed(4)}°</Text>
-            <Text>Pitch: {orientation.pitch.toFixed(4)}°</Text>
-            <Text>Roll: {orientation.roll.toFixed(4)}°</Text>
+            <Text>X: {orientation.beta.toFixed(4)}°</Text>
+            <Text>Y: {orientation.gamma.toFixed(4)}°</Text>
+            <Text>Z: {orientation.alpha.toFixed(4)}°</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -350,9 +339,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name="arrow-right" size={20} />
             </View>
-            <Text>Yaw (Z - Alfa): {vectorRotacionData.alpha.toFixed(2)}°/s</Text>
-            <Text>Pitch (X - Beta): {vectorRotacionData.beta.toFixed(2)}°/s</Text>
-            <Text>Roll (Y - Gamma): {vectorRotacionData.gamma.toFixed(2)}°/s</Text>
+            <Text>X: {vectorRotacionData.beta.toFixed(2)}°/s</Text>
+            <Text>Y: {vectorRotacionData.gamma.toFixed(2)}°/s</Text>
+            <Text>Z: {vectorRotacionData.alpha.toFixed(2)}°/s</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
