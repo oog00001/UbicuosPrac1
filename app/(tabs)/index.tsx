@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Card, Title } from 'react-native-paper';
-import { Accelerometer, Magnetometer, Gyroscope, DeviceMotion, LightSensor, Barometer } from 'expo-sensors';
+import { Accelerometer, Magnetometer, Gyroscope, DeviceMotion, LightSensor } from 'expo-sensors';
 import * as Location from 'expo-location';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { db, addDoc, collection } from './firebaseConfig';
@@ -38,6 +38,10 @@ export default function SensorsScreen() {
   const [lightIntensity, setLightIntensity] = useState(0);
 
   useEffect(() => {
+    navigation.setOptions({
+      title: "Sensores",
+    });
+    
     // Sensor de luz
     const subscribe = () => {
       LightSensor.addListener((data) => {
@@ -50,7 +54,7 @@ export default function SensorsScreen() {
     return () => {
       LightSensor.removeAllListeners();
     };
-  }, []);
+  }, [navigation]);
 
   const radianesAGrados = (radianes: number) => {
     return (radianes * 180) / Math.PI;

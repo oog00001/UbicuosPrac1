@@ -1,38 +1,53 @@
-import React, { useState, useEffect, useRef } from 'react'; 
-import { View, Text, StyleSheet, Dimensions } from 'react-native'; 
-import { LineChart } from 'react-native-chart-kit'; 
-import { Accelerometer } from 'expo-sensors'; 
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
+import { Accelerometer } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
-interface AccelerometerData { 
-    x: number; 
-    y: number; 
-    z: number; 
+interface AccelerometerData {
+    x: number;
+    y: number;
+    z: number;
 }
 
-export default function Acelerometro() { 
-    const [accelData, setAccelData] = useState({ x: 0, y: 0, z: 0 }); 
+export default function Acelerometro() {
+    const [accelData, setAccelData] = useState({ x: 0, y: 0, z: 0 });
     const [accelHistory, setAccelHistory] = useState<AccelerometerData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
-    );    
+    );
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const accelSubscriptionRef = useRef<any>(null);
+    const navigation = useNavigation();
 
     useEffect(() => {
-        Accelerometer.setUpdateInterval(500); 
-        accelSubscriptionRef.current = Accelerometer.addListener((data: AccelerometerData) => { 
-            setAccelData(data); 
-            setAccelHistory(prevHistory => { 
-                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory; 
-                const updatedHistory = [...prevHistory, data]; 
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory; 
-            }); 
+        navigation.setOptions({
+            title: "Acelerómetro",
+            headerLeft: () => (
+                <FontAwesome5
+                    name="arrow-left"
+                    size={20}
+                    color="white"
+                    style={{ marginLeft: 20, marginRight: 30 }}
+                    onPress={() => navigation.goBack()}
+                />
+            ),
         });
 
-        return () => { 
-            if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove(); 
+        Accelerometer.setUpdateInterval(500);
+        accelSubscriptionRef.current = Accelerometer.addListener((data: AccelerometerData) => {
+            setAccelData(data);
+            setAccelHistory(prevHistory => {
+                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
+                const updatedHistory = [...prevHistory, data];
+                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+            });
+        });
+
+        return () => {
+            if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
         };
-    }, []);
+    }, [navigation]);
 
     return (
         <View style={styles.screen}>
@@ -72,6 +87,9 @@ export default function Acelerometro() {
                             labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             style: { borderRadius: 16 },
                             propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
+                            propsForLabels: {
+                                fontSize: 10,
+                            }
                         }}
                         bezier
                     />
