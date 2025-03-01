@@ -209,7 +209,7 @@ export default function SensorsScreen() {
     <ScrollView style={styles.container}>
 
       {/* Acelerómetro */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('acelerometro')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
