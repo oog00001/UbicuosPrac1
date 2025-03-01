@@ -34,12 +34,12 @@ export default function Acelerometro() {
         };
     }, []);
 
-    return ( 
-        <View style={styles.screen}> 
-            <View 
-                style={styles.container} 
-                onLayout={(event) => { 
-                    const { width } = event.nativeEvent.layout; 
+    return (
+        <View style={styles.screen}>
+            <View
+                style={styles.container}
+                onLayout={(event) => {
+                    const { width } = event.nativeEvent.layout;
                     setContainerWidth(width);
                 }}
             >
@@ -47,9 +47,9 @@ export default function Acelerometro() {
                     <FontAwesome5 name='drafting-compass' size={20} style={styles.icon} />
                     <Text style={styles.title}>Acelerómetro</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(accelData.x * 10).toFixed(5)}</Text>
-                <Text style={styles.dataText}>Y: {(accelData.y * 10).toFixed(5)}</Text>
-                <Text style={styles.dataText}>Z: {(accelData.z * 10).toFixed(5)}</Text>
+                <Text style={styles.dataText}>X: {(accelData.x * 10).toFixed(5)} m/s²</Text>
+                <Text style={styles.dataText}>Y: {(accelData.y * 10).toFixed(5)} m/s²</Text>
+                <Text style={styles.dataText}>Z: {(accelData.z * 10).toFixed(5)} m/s²</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
@@ -59,9 +59,9 @@ export default function Acelerometro() {
                                 { data: accelHistory.map(d => isFinite(d.x) ? d.x * 10 : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
                                 { data: accelHistory.map(d => isFinite(d.y) ? d.y * 10 : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
                                 { data: accelHistory.map(d => isFinite(d.z) ? d.z * 10 : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
-                            ]                        
+                            ]
                         }}
-                        width={containerWidth - 20}
+                        width={containerWidth}
                         height={220}
                         yAxisSuffix=' m/s²'
                         chartConfig={{
@@ -71,7 +71,7 @@ export default function Acelerometro() {
                             color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             style: { borderRadius: 16 },
-                            propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' }
+                            propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
                         }}
                         bezier
                     />
@@ -89,8 +89,8 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     container: {
+        flex: 1,
         padding: 5,
-        margin: 5,
         backgroundColor: '#ffffff',
     },
     titleContent: {
