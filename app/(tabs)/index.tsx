@@ -231,7 +231,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Campo Magnético */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('magnetometro')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -273,7 +273,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Orientacion */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('orientacion')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -291,7 +291,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* giroscopio */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('giroscopio')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -309,7 +309,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Gravedad */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('gravedad')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
