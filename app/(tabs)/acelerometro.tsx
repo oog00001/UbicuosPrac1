@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { Accelerometer } from 'expo-sensors';
@@ -22,12 +22,12 @@ export default function Acelerometro() {
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Acelerómetro",
+            title: 'Acelerómetro',
             headerLeft: () => (
                 <FontAwesome5
-                    name="arrow-left"
+                    name='arrow-left'
                     size={20}
-                    color="white"
+                    color='white'
                     style={{ marginLeft: 20, marginRight: 30 }}
                     onPress={() => navigation.goBack()}
                 />

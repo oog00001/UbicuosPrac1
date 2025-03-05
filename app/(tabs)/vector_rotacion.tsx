@@ -1,28 +1,28 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Magnetometer } from 'expo-sensors';
+import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-interface MagnetometerData {
-    x: number;
-    y: number;
-    z: number;
+interface vectorRotacionData {
+    alpha: number;
+    beta: number;
+    gamma: number;
 }
 
-export default function Magnetometro() {
-    const [magData, setMagData] = useState({ x: 0, y: 0, z: 0 });
-    const [magHistory, setmagHistory] = useState<MagnetometerData[]>(
-        Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
+export default function VectorRotacion() {
+    const [vectorRotacionData, setVectorRotacionData] = useState({ alpha: 0, beta: 0, gamma: 0 });
+    const [vectorRotacionHistory, setVectorRotacionHistory] = useState<vectorRotacionData[]>(
+        Array.from({ length: 20 }, () => ({ alpha: 0, beta: 0, gamma: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const magSubscriptionRef = useRef<any>(null);
+    const vectorLinealSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Magnetometro",
+            title: "Tasa de rotación",
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -34,18 +34,31 @@ export default function Magnetometro() {
             ),
         });
 
-        Magnetometer.setUpdateInterval(500);
-        magSubscriptionRef.current = Magnetometer.addListener((data: MagnetometerData) => {
-            setMagData(data);
-            setmagHistory(prevHistory => {
-                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
-                const updatedHistory = [...prevHistory, data];
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-            });
-        });
+
+        const asincronia = async () => {
+            const isAvailable = await DeviceMotion.isAvailableAsync();
+            if (isAvailable) {
+                DeviceMotion.setUpdateInterval(500);
+                vectorLinealSubscriptionRef.current = DeviceMotion.addListener((data) => {
+                    if (data.rotationRate) {
+                        setVectorRotacionData(data.rotationRate);
+                        let alphaP = data.rotationRate.alpha;
+                        let betaP = data.rotationRate.beta;
+                        let gammaP = data.rotationRate.gamma;
+                        setVectorRotacionHistory(prevHistory => {
+                            if (!isFinite(alphaP) || !isFinite(betaP) || !isFinite(gammaP)) return prevHistory;
+                            const updatedHistory = [...prevHistory, vectorRotacionData];
+                            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+                        });
+                    }
+                });
+            }
+        };
+
+        asincronia();
 
         return () => {
-            if (magSubscriptionRef.current) magSubscriptionRef.current.remove();
+            if (vectorLinealSubscriptionRef.current) vectorLinealSubscriptionRef.current.remove();
         };
     }, [navigation]);
 
@@ -59,26 +72,26 @@ export default function Magnetometro() {
                 }}
             >
                 <View style={styles.titleContent}>
-                    <FontAwesome5 name='magnet' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Magnetometro</Text>
+                    <FontAwesome5 name='sync' size={20} style={styles.icon} />
+                    <Text style={styles.title}>Tasa de rotación</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(magData.x).toFixed(5)} μT</Text>
-                <Text style={styles.dataText}>Y: {(magData.y).toFixed(5)} μT</Text>
-                <Text style={styles.dataText}>Z: {(magData.z).toFixed(5)} μT</Text>
+                <Text style={styles.dataText}>X: {vectorRotacionData.beta.toFixed(2)} °/s</Text>
+                <Text style={styles.dataText}>Y: {vectorRotacionData.gamma.toFixed(2)} °/s</Text>
+                <Text style={styles.dataText}>Z: {vectorRotacionData.alpha.toFixed(2)} °/s</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
                         data={{
                             labels: [],
                             datasets: [
-                                { data: magHistory.map(d => isFinite(d.x) ? d.x : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: magHistory.map(d => isFinite(d.y) ? d.y : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: magHistory.map(d => isFinite(d.z) ? d.z : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: vectorRotacionHistory.map(d => isFinite(d.beta) ? d.beta  : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: vectorRotacionHistory.map(d => isFinite(d.gamma) ? d.gamma  : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: vectorRotacionHistory.map(d => isFinite(d.alpha) ? d.alpha  : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}
                         height={220}
-                        yAxisSuffix=' μT'
+                        yAxisSuffix=' °/s'
                         chartConfig={{
                             backgroundGradientFrom: '#ffffff',
                             backgroundGradientTo: '#ffffff',

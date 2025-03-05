@@ -72,18 +72,18 @@ export default function Orientacion() {
                     <FontAwesome5 name='cloud-sun' size={20} style={styles.icon} />
                     <Text style={styles.title}>Gravedad</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(gravity.x * 10).toFixed(5)} m/s²</Text>
-                <Text style={styles.dataText}>Y: {(gravity.y * 10).toFixed(5)} m/s²</Text>
-                <Text style={styles.dataText}>Z: {(gravity.z * 10).toFixed(5)} m/s²</Text>
+                <Text style={styles.dataText}>X: {(gravity.x).toFixed(5)} m/s²</Text>
+                <Text style={styles.dataText}>Y: {(gravity.y).toFixed(5)} m/s²</Text>
+                <Text style={styles.dataText}>Z: {(gravity.z).toFixed(5)} m/s²</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
                         data={{
                             labels: [],
                             datasets: [
-                                { data: garvityHistory.map(d => isFinite(d.x) ? d.x * 10 : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: garvityHistory.map(d => isFinite(d.y) ? d.y * 10 : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: garvityHistory.map(d => isFinite(d.z) ? d.z * 10 : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: garvityHistory.map(d => isFinite(d.x) ? d.x : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: garvityHistory.map(d => isFinite(d.y) ? d.y : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: garvityHistory.map(d => isFinite(d.z) ? d.z : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}

@@ -62,18 +62,18 @@ export default function Giroscopio() {
                     <FontAwesome5 name='spinner' size={20} style={styles.icon} />
                     <Text style={styles.title}>Giroscopio</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(gyroData.x * 10).toFixed(5)} rad/s</Text>
-                <Text style={styles.dataText}>Y: {(gyroData.y * 10).toFixed(5)} rad/s</Text>
-                <Text style={styles.dataText}>Z: {(gyroData.z * 10).toFixed(5)} rad/s</Text>
+                <Text style={styles.dataText}>X: {(gyroData.x).toFixed(5)} rad/s</Text>
+                <Text style={styles.dataText}>Y: {(gyroData.y).toFixed(5)} rad/s</Text>
+                <Text style={styles.dataText}>Z: {(gyroData.z).toFixed(5)} rad/s</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
                         data={{
                             labels: [],
                             datasets: [
-                                { data: gyroHistory.map(d => isFinite(d.x) ? d.x * 10 : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: gyroHistory.map(d => isFinite(d.y) ? d.y * 10 : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: gyroHistory.map(d => isFinite(d.z) ? d.z * 10 : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: gyroHistory.map(d => isFinite(d.x) ? d.x : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: gyroHistory.map(d => isFinite(d.y) ? d.y : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: gyroHistory.map(d => isFinite(d.z) ? d.z : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}

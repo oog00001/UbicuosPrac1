@@ -1,28 +1,31 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Magnetometer } from 'expo-sensors';
+import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as Battery from 'expo-battery';
 
-interface MagnetometerData {
-    x: number;
-    y: number;
-    z: number;
+interface BatteryData {
+    level: number;
 }
 
-export default function Magnetometro() {
-    const [magData, setMagData] = useState({ x: 0, y: 0, z: 0 });
-    const [magHistory, setmagHistory] = useState<MagnetometerData[]>(
-        Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
+export default function BatteryFuncion() {
+
+    const [batteryLevel, setBatteryLevel] = useState(0);
+    const [batteryState, setBatteryState] = useState('');
+    const [lowPowerMode, setLowPowerMode] = useState('');
+
+    const [batteryHistory, setBatteryHistory] = useState<BatteryData[]>(
+        Array.from({ length: 20 }, () => ({ level: 0}))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const magSubscriptionRef = useRef<any>(null);
+    const BatterySubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Magnetometro",
+            title: "Bateria",
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -34,18 +37,52 @@ export default function Magnetometro() {
             ),
         });
 
-        Magnetometer.setUpdateInterval(500);
-        magSubscriptionRef.current = Magnetometer.addListener((data: MagnetometerData) => {
-            setMagData(data);
-            setmagHistory(prevHistory => {
-                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
-                const updatedHistory = [...prevHistory, data];
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-            });
-        });
+
+        const asincronia = async () => {
+            const batteryLevelValue = await Battery.getBatteryLevelAsync();
+            setBatteryLevel(batteryLevelValue * 100);
+            
+            const batteryStateValue = await Battery.getBatteryStateAsync();
+                  let batteryStateText = '';
+                  switch (batteryStateValue) {
+                    case Battery.BatteryState.CHARGING:
+                      batteryStateText = 'cargando';
+                      break;
+                    case Battery.BatteryState.FULL:
+                      batteryStateText = 'batería llena';
+                      break;
+                    case Battery.BatteryState.UNPLUGGED:
+                      batteryStateText = 'descarga';
+                      break;
+                    default:
+                      batteryStateText = 'desconocido';
+                  }
+                  setBatteryState(batteryStateText);
+            
+            const lowPowerModeValue = await Battery.isLowPowerModeEnabledAsync();
+            
+                let lowPowerModeText = '';
+                if (!lowPowerModeValue) {
+                    lowPowerModeText = 'desactivado';
+                } else {
+                    lowPowerModeText = 'activado';
+                }
+                setLowPowerMode(lowPowerModeText);
+
+                let valor = { level: 0 };
+                valor.level = batteryLevelValue * 100;
+
+                setBatteryHistory(prevHistory => {
+                    if (!isFinite(batteryLevelValue * 100)) return prevHistory;
+                    const updatedHistory = [...prevHistory, valor];
+                    return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+                });
+        };
+
+        asincronia();
 
         return () => {
-            if (magSubscriptionRef.current) magSubscriptionRef.current.remove();
+            if (BatterySubscriptionRef.current) BatterySubscriptionRef.current.remove();
         };
     }, [navigation]);
 
@@ -59,30 +96,28 @@ export default function Magnetometro() {
                 }}
             >
                 <View style={styles.titleContent}>
-                    <FontAwesome5 name='magnet' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Magnetometro</Text>
+                    <FontAwesome5 name='battery-half' size={20} style={styles.icon} />
+                    <Text style={styles.title}>Bateria</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(magData.x).toFixed(5)} μT</Text>
-                <Text style={styles.dataText}>Y: {(magData.y).toFixed(5)} μT</Text>
-                <Text style={styles.dataText}>Z: {(magData.z).toFixed(5)} μT</Text>
+                <Text style={styles.dataText}>Nivel: {Math.floor(batteryLevel)}%</Text>
+                <Text style={styles.dataText}>Estado: {batteryState}</Text>
+                <Text style={styles.dataText}>Ahorro de energia: {String(lowPowerMode)}</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
                         data={{
                             labels: [],
                             datasets: [
-                                { data: magHistory.map(d => isFinite(d.x) ? d.x : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: magHistory.map(d => isFinite(d.y) ? d.y : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: magHistory.map(d => isFinite(d.z) ? d.z : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: batteryHistory.map(d => isFinite(d.level) ? d.level : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}
                         height={220}
-                        yAxisSuffix=' μT'
+                        yAxisSuffix=' %'
                         chartConfig={{
                             backgroundGradientFrom: '#ffffff',
                             backgroundGradientTo: '#ffffff',
-                            decimalPlaces: 2,
+                            decimalPlaces: 0,
                             color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             style: { borderRadius: 16 },
