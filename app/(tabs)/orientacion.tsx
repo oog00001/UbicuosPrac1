@@ -60,6 +60,7 @@ export default function Orientacion() {
                             x: normalizarRango(radianesAGrados(data.rotation.beta)),
                             y: normalizarRango(radianesAGrados(data.rotation.gamma)),
                         });
+
                         setOriHistory(prevHistory => {
                             if (!isFinite(normalizarRango(radianesAGrados(data.rotation.beta))) || !isFinite(normalizarRango(radianesAGrados(data.rotation.gamma))) || !isFinite(normalizarRango(radianesAGrados(data.rotation.alpha)))) return prevHistory;
                             const updatedHistory = [...prevHistory, orientation];
@@ -77,6 +78,8 @@ export default function Orientacion() {
         };
     }, [navigation]);
 
+    
+
     return (
         <View style={styles.screen}>
             <View
@@ -90,18 +93,18 @@ export default function Orientacion() {
                     <FontAwesome5 name='compass' size={20} style={styles.icon} />
                     <Text style={styles.title}>Orientacion</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(orientation.x * 10).toFixed(5)} °</Text>
-                <Text style={styles.dataText}>Y: {(orientation.y * 10).toFixed(5)} °</Text>
-                <Text style={styles.dataText}>Z: {(orientation.z * 10).toFixed(5)} °</Text>
+                <Text style={styles.dataText}>X: {(orientation.x).toFixed(5)} °</Text>
+                <Text style={styles.dataText}>Y: {(orientation.y).toFixed(5)} °</Text>
+                <Text style={styles.dataText}>Z: {(orientation.z).toFixed(5)} °</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
                         data={{
                             labels: [],
                             datasets: [
-                                { data: oriHistory.map(d => isFinite(d.x) ? d.x * 10 : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: oriHistory.map(d => isFinite(d.y) ? d.y * 10 : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: oriHistory.map(d => isFinite(d.z) ? d.z * 10 : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: oriHistory.map(d => isFinite(d.x) ? d.x : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: oriHistory.map(d => isFinite(d.y) ? d.y : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: oriHistory.map(d => isFinite(d.z) ? d.z : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}

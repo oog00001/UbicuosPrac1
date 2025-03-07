@@ -39,9 +39,9 @@ export default function SensorsScreen() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: "Sensores",
+      title: 'Sensores',
     });
-    
+
     // Sensor de luz
     const subscribe = () => {
       LightSensor.addListener((data) => {
@@ -249,7 +249,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Ubicación */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('ubicacion')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -327,7 +327,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Aceleracion lineal */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('vector_lineal')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -345,7 +345,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Tasa de rotacion */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('vector_rotacion')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -363,7 +363,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Bateria */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('bateria')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -381,7 +381,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Internet */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('internet')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -399,7 +399,7 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Luz */}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
+      <TouchableOpacity onPress={() => navigation.navigate('luz')}>
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.titleContainer}>
@@ -415,18 +415,16 @@ export default function SensorsScreen() {
       </TouchableOpacity>
 
       {/* Fecha y hora*/}
-      <TouchableOpacity onPress={() => navigation.navigate('explore')}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <View style={styles.titleContainer}>
-              <View style={styles.titleContent}>
-                <Title><FontAwesome5 name='clock' size={20} /> Fecha y hora</Title>
-              </View>
+      <Card style={styles.card}>
+        <Card.Content>
+          <View style={styles.titleContainer}>
+            <View style={styles.titleContent}>
+              <Title><FontAwesome5 name='clock' size={20} /> Fecha y hora</Title>
             </View>
-            <Text>{dateTime.toLocaleDateString()} {dateTime.toLocaleTimeString()}</Text>
-          </Card.Content>
-        </Card>
-      </TouchableOpacity>
+          </View>
+          <Text>{dateTime.toLocaleDateString()} {dateTime.toLocaleTimeString()}</Text>
+        </Card.Content>
+      </Card>
 
     </ScrollView>
   );

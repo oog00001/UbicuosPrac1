@@ -1,28 +1,26 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Gyroscope } from 'expo-sensors';
+import {  LightSensor } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-interface GyroscopioData {
-    x: number;
-    y: number;
-    z: number;
+interface LuzData {
+    luz: number;
 }
 
-export default function Giroscopio() {
-    const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
-    const [gyroHistory, setGyroHistory] = useState<GyroscopioData[]>(
-        Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
+export default function LuzFuction() {
+    const [lightIntensity, setLightIntensity] = useState(0);
+    const [luzHistory, setLuzHistory] = useState<LuzData[]>(
+        Array.from({ length: 20 }, () => ({ luz: 0}))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const gyroSubscriptionRef = useRef<any>(null);
+    const luzSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Giroscopio",
+            title: "Luz",
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -34,18 +32,19 @@ export default function Giroscopio() {
             ),
         });
 
-        Gyroscope.setUpdateInterval(500);
-        gyroSubscriptionRef.current = Gyroscope.addListener((data: GyroscopioData) => {
-            setGyroData(data);
-            setGyroHistory(prevHistory => {
-                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
-                const updatedHistory = [...prevHistory, data];
+        LightSensor.addListener((data) => {
+            setLightIntensity(data.illuminance);
+            let valor = {luz: 0};
+            valor.luz = data.illuminance;
+            setAccelHistory(prevHistory => {
+                if (!isFinite(data.illuminance) ) return prevHistory;
+                const updatedHistory = [...prevHistory, valor];
                 return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
             });
         });
 
         return () => {
-            if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
+             LightSensor.removeAllListeners();
         };
     }, [navigation]);
 
@@ -59,26 +58,22 @@ export default function Giroscopio() {
                 }}
             >
                 <View style={styles.titleContent}>
-                    <FontAwesome5 name='spinner' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Giroscopio</Text>
+                    <FontAwesome5 name='lightbulb' size={20} style={styles.icon} />
+                    <Text style={styles.title}>Luz</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(gyroData.x).toFixed(5)} rad/s</Text>
-                <Text style={styles.dataText}>Y: {(gyroData.y).toFixed(5)} rad/s</Text>
-                <Text style={styles.dataText}>Z: {(gyroData.z).toFixed(5)} rad/s</Text>
+                <Text style={styles.dataText}>{Platform.OS === 'android' ? `${lightIntensity.toFixed(2)} lx` : `Only available on Android`}</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
                         data={{
                             labels: [],
                             datasets: [
-                                { data: gyroHistory.map(d => isFinite(d.x) ? d.x : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: gyroHistory.map(d => isFinite(d.y) ? d.y : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: gyroHistory.map(d => isFinite(d.z) ? d.z : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: luzHistory.map(d => isFinite(d.luz) ? d.luz * 10 : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}
                         height={220}
-                        yAxisSuffix=' rad/s'
+                        yAxisSuffix=' m/s²'
                         chartConfig={{
                             backgroundGradientFrom: '#ffffff',
                             backgroundGradientTo: '#ffffff',
