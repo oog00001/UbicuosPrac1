@@ -4,6 +4,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
 
 interface vectorRotacionData {
     alpha: number;
@@ -12,7 +13,7 @@ interface vectorRotacionData {
 }
 
 export default function VectorRotacion() {
-    const [vectorRotacionData, setVectorRotacionData] = useState({ alpha: 0, beta: 0, gamma: 0 });
+    const { vectorRotacionData } = useSensors();
     const [vectorRotacionHistory, setVectorRotacionHistory] = useState<vectorRotacionData[]>(
         Array.from({ length: 20 }, () => ({ alpha: 0, beta: 0, gamma: 0 }))
     );
@@ -34,33 +35,15 @@ export default function VectorRotacion() {
             ),
         });
 
-
-        const asincronia = async () => {
-            const isAvailable = await DeviceMotion.isAvailableAsync();
-            if (isAvailable) {
-                DeviceMotion.setUpdateInterval(500);
-                vectorLinealSubscriptionRef.current = DeviceMotion.addListener((data) => {
-                    if (data.rotationRate) {
-                        setVectorRotacionData(data.rotationRate);
-                        let alphaP = data.rotationRate.alpha;
-                        let betaP = data.rotationRate.beta;
-                        let gammaP = data.rotationRate.gamma;
-                        setVectorRotacionHistory(prevHistory => {
-                            if (!isFinite(alphaP) || !isFinite(betaP) || !isFinite(gammaP)) return prevHistory;
-                            const updatedHistory = [...prevHistory, vectorRotacionData];
-                            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                        });
-                    }
-                });
-            }
-        };
-
-        asincronia();
-
+        setVectorRotacionHistory(prevHistory => {
+            if (!isFinite(vectorRotacionData.alpha) || !isFinite(vectorRotacionData.beta) || !isFinite(vectorRotacionData.gamma)) return prevHistory;
+            const updatedHistory = [...prevHistory, vectorRotacionData];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
         return () => {
             if (vectorLinealSubscriptionRef.current) vectorLinealSubscriptionRef.current.remove();
         };
-    }, [navigation]);
+    }, [navigation,vectorRotacionData]);
 
     return (
         <View style={styles.screen}>
@@ -84,9 +67,9 @@ export default function VectorRotacion() {
                         data={{
                             labels: [],
                             datasets: [
-                                { data: vectorRotacionHistory.map(d => isFinite(d.beta) ? d.beta  : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: vectorRotacionHistory.map(d => isFinite(d.gamma) ? d.gamma  : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: vectorRotacionHistory.map(d => isFinite(d.alpha) ? d.alpha  : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: vectorRotacionHistory.map(d => isFinite(d.beta) ? d.beta : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: vectorRotacionHistory.map(d => isFinite(d.gamma) ? d.gamma : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: vectorRotacionHistory.map(d => isFinite(d.alpha) ? d.alpha : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}

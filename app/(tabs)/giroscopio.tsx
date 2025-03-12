@@ -4,6 +4,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { Gyroscope } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
 
 interface GyroscopioData {
     x: number;
@@ -12,7 +13,7 @@ interface GyroscopioData {
 }
 
 export default function Giroscopio() {
-    const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
+    const { gyroData } = useSensors();
     const [gyroHistory, setGyroHistory] = useState<GyroscopioData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
@@ -34,20 +35,17 @@ export default function Giroscopio() {
             ),
         });
 
-        Gyroscope.setUpdateInterval(500);
-        gyroSubscriptionRef.current = Gyroscope.addListener((data: GyroscopioData) => {
-            setGyroData(data);
-            setGyroHistory(prevHistory => {
-                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
-                const updatedHistory = [...prevHistory, data];
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-            });
+
+        setGyroHistory(prevHistory => {
+            if (!isFinite(gyroData.x) || !isFinite(gyroData.y) || !isFinite(gyroData.z)) return prevHistory;
+            const updatedHistory = [...prevHistory, gyroData];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
 
         return () => {
             if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
         };
-    }, [navigation]);
+    }, [navigation, gyroData]);
 
     return (
         <View style={styles.screen}>

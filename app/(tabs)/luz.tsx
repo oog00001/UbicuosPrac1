@@ -4,13 +4,14 @@ import { LineChart } from 'react-native-chart-kit';
 import {  LightSensor } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
 
 interface LuzData {
     luz: number;
 }
 
 export default function LuzFuction() {
-    const [lightIntensity, setLightIntensity] = useState(0);
+    const { lightIntensity } = useSensors();
     const [luzHistory, setLuzHistory] = useState<LuzData[]>(
         Array.from({ length: 20 }, () => ({ luz: 0}))
     );
@@ -32,21 +33,15 @@ export default function LuzFuction() {
             ),
         });
 
-        LightSensor.addListener((data) => {
-            setLightIntensity(data.illuminance);
-            let valor = {luz: 0};
-            valor.luz = data.illuminance;
-            setAccelHistory(prevHistory => {
-                if (!isFinite(data.illuminance) ) return prevHistory;
-                const updatedHistory = [...prevHistory, valor];
+            setLuzHistory(prevHistory => {
+                if (!isFinite(lightIntensity) ) return prevHistory;
+                const updatedHistory = [...prevHistory,  { luz: lightIntensity }];
                 return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
             });
-        });
 
         return () => {
-             LightSensor.removeAllListeners();
         };
-    }, [navigation]);
+    }, [navigation,lightIntensity]);
 
     return (
         <View style={styles.screen}>
@@ -68,7 +63,7 @@ export default function LuzFuction() {
                         data={{
                             labels: [],
                             datasets: [
-                                { data: luzHistory.map(d => isFinite(d.luz) ? d.luz * 10 : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: luzHistory.map(d => isFinite(d.luz) ? d.luz : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}
@@ -83,7 +78,7 @@ export default function LuzFuction() {
                             style: { borderRadius: 16 },
                             propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
                             propsForLabels: {
-                                fontSize: 10,
+                                fontSize: 9,
                             }
                         }}
                         bezier

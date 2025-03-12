@@ -18,7 +18,6 @@ export default function Acelerometro() {
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const accelSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -36,18 +35,15 @@ export default function Acelerometro() {
         });
 
         Accelerometer.setUpdateInterval(500);
-        accelSubscriptionRef.current = Accelerometer.addListener((data: AccelerometerData) => {
-            setAccelHistory(prevHistory => {
-                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
-                const updatedHistory = [...prevHistory, data];
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-            });
+        setAccelHistory(prevHistory => {
+            if (!isFinite(accelData.x) || !isFinite(accelData.y) || !isFinite(accelData.z)) return prevHistory;
+            const updatedHistory = [...prevHistory, accelData];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
 
         return () => {
-            if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
         };
-    }, [navigation]);
+    }, [navigation,accelData]);
 
     useEffect(() => {
         setAccelHistory((prevHistory) => {

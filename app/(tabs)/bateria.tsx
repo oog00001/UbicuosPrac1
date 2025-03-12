@@ -5,6 +5,7 @@ import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Battery from 'expo-battery';
+import useSensors from '../../hooks/useSensors';
 
 interface BatteryData {
     level: number;
@@ -12,15 +13,12 @@ interface BatteryData {
 
 export default function BatteryFuncion() {
 
-    const [batteryLevel, setBatteryLevel] = useState(0);
-    const [batteryState, setBatteryState] = useState('');
-    const [lowPowerMode, setLowPowerMode] = useState('');
+    const { batteryLevel, batteryState, lowPowerMode } = useSensors();
 
     const [batteryHistory, setBatteryHistory] = useState<BatteryData[]>(
-        Array.from({ length: 20 }, () => ({ level: 0}))
+        Array.from({ length: 20 }, () => ({ level: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const BatterySubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -37,54 +35,15 @@ export default function BatteryFuncion() {
             ),
         });
 
-
-        const asincronia = async () => {
-            const batteryLevelValue = await Battery.getBatteryLevelAsync();
-            setBatteryLevel(batteryLevelValue * 100);
-            
-            const batteryStateValue = await Battery.getBatteryStateAsync();
-                  let batteryStateText = '';
-                  switch (batteryStateValue) {
-                    case Battery.BatteryState.CHARGING:
-                      batteryStateText = 'cargando';
-                      break;
-                    case Battery.BatteryState.FULL:
-                      batteryStateText = 'batería llena';
-                      break;
-                    case Battery.BatteryState.UNPLUGGED:
-                      batteryStateText = 'descarga';
-                      break;
-                    default:
-                      batteryStateText = 'desconocido';
-                  }
-                  setBatteryState(batteryStateText);
-            
-            const lowPowerModeValue = await Battery.isLowPowerModeEnabledAsync();
-            
-                let lowPowerModeText = '';
-                if (!lowPowerModeValue) {
-                    lowPowerModeText = 'desactivado';
-                } else {
-                    lowPowerModeText = 'activado';
-                }
-                setLowPowerMode(lowPowerModeText);
-
-                let valor = { level: 0 };
-                valor.level = batteryLevelValue * 100;
-
-                setBatteryHistory(prevHistory => {
-                    if (!isFinite(batteryLevelValue * 100)) return prevHistory;
-                    const updatedHistory = [...prevHistory, valor];
-                    return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                });
-        };
-
-        asincronia();
+        setBatteryHistory(prevHistory => {
+            if (!isFinite(batteryLevel)) return prevHistory;
+            const updatedHistory = [...prevHistory, { level: batteryLevel}];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
         return () => {
-            if (BatterySubscriptionRef.current) BatterySubscriptionRef.current.remove();
         };
-    }, [navigation]);
+    }, [navigation,batteryLevel]);
 
     return (
         <View style={styles.screen}>

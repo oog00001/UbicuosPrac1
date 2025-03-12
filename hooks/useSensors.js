@@ -8,7 +8,15 @@ const useSensors = () => {
     const [dateTime, setDateTime] = useState(new Date());
     const [accelData, setAccelData] = useState({ x: 0, y: 0, z: 0 });
     const [magData, setMagData] = useState({ x: 0, y: 0, z: 0 });
-    const [location, setLocation] = useState({ latitude: 0, longitude: 0, altitude: 0 });
+    const [location, setLocation] = useState({
+        city: '',
+        latitude: 0,
+        longitude: 0,
+        accuracy: 0,
+        altitude: 0,
+        heading: 0,
+        speed: 0,
+    });
     const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
     const [ipData, setIpData] = useState('');
     const [tipoConexion, setTipoConexion] = useState('');
@@ -21,6 +29,9 @@ const useSensors = () => {
     const [accelDataLineal, setAccelDataLineal] = useState({ x: 0, y: 0, z: 0 });
     const [vectorRotacionData, setVectorRotacionData] = useState({ alpha: 0, beta: 0, gamma: 0 });
     const [orientation, setOrientation] = useState({ x: 0, y: 0, z: 0 });
+
+    const [accesible, setAccesible] = useState('');
+    const [avion, setavion] = useState('');
 
     const accelSubscriptionRef = useRef(null);
     const magSubscriptionRef = useRef(null);
@@ -74,11 +85,11 @@ const useSensors = () => {
             // Acelerómetro
             Accelerometer.setUpdateInterval(500);
             accelSubscriptionRef.current = Accelerometer.addListener(setAccelData);
-    
+
             // Magnetómetro
             Magnetometer.setUpdateInterval(500);
             magSubscriptionRef.current = Magnetometer.addListener(setMagData);
-    
+
             // Ubicación
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status === 'granted') {
@@ -89,11 +100,11 @@ const useSensors = () => {
                     altitude: loc.coords.altitude ?? 0,
                 });
             }
-    
+
             // Giroscopio
             Gyroscope.setUpdateInterval(500);
             gyroSubscriptionRef.current = Gyroscope.addListener(setGyroData);
-    
+
             // DeviceMotion (orientación y gravedad)
             const isAvailable = await DeviceMotion.isAvailableAsync();
             if (isAvailable) {
@@ -112,9 +123,9 @@ const useSensors = () => {
                 });
             }
         };
-    
+
         fetchData();
-    
+
         return () => {
             // Eliminamos suscripciones cuando el componente se desmonta
             if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
@@ -122,7 +133,7 @@ const useSensors = () => {
             if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
             if (vectorRotationRef.current) vectorRotationRef.current.remove();
         };
-    }, []);   
+    }, []);
 
     useEffect(() => {
         const fetchBattery = async () => {
@@ -181,16 +192,21 @@ const useSensors = () => {
                 }
                 setTipoConexion(tipoConexionText);
             }
-
             setConexion(tipoCon.isConnected ? 'sí' : 'no');
+
+            setAccesible(tipoCon.isInternetReachable ? 'sí' : 'no');
+            const nn = await Network.isAirplaneModeEnabledAsync();
+            setavion(nn ? 'sí' : 'no');
         };
 
         fetchBattery();
     }, [accelData, gravity]);
 
-    return { dateTime, accelData, magData, location, gyroData, ipData, tipoConexion, 
-        conexion, gravity, batteryLevel, batteryState, lowPowerMode, accelDataLineal, 
-        vectorRotacionData, orientation, lightIntensity };
+    return {
+        dateTime, accelData, magData, location, gyroData, ipData, tipoConexion,
+        conexion, gravity, batteryLevel, batteryState, lowPowerMode, accelDataLineal,
+        vectorRotacionData, orientation, lightIntensity, avion, accesible
+    };
 };
 
 export default useSensors;

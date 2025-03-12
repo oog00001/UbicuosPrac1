@@ -4,6 +4,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
 
 interface accelLinealData {
     x: number;
@@ -12,7 +13,7 @@ interface accelLinealData {
 }
 
 export default function AceleracionLineal() {
-    const [accelDataLineal, setAccelDataLineal] = useState({ x: 0, y: 0, z: 0 });
+    const { accelDataLineal } = useSensors();
     const [accelLinealHistory, setAccelLinealHistory] = useState<accelLinealData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
@@ -34,33 +35,15 @@ export default function AceleracionLineal() {
             ),
         });
 
-
-        const asincronia = async () => {
-            const isAvailable = await DeviceMotion.isAvailableAsync();
-            if (isAvailable) {
-                DeviceMotion.setUpdateInterval(500);
-                accelLinealSubscriptionRef.current = DeviceMotion.addListener((data) => {
-                    if (data.acceleration) {
-                        setAccelDataLineal(data.acceleration);
-                        let xP = data.acceleration.x;
-                        let yP = data.acceleration.y;
-                        let zP = data.acceleration.z;
-                        setAccelLinealHistory(prevHistory => {
-                            if (!isFinite(xP) || !isFinite(yP) || !isFinite(zP)) return prevHistory;
-                            const updatedHistory = [...prevHistory, accelDataLineal];
-                            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                        });
-                    }
-                });
-            }
-        };
-
-        asincronia();
+        setAccelLinealHistory(prevHistory => {
+            if (!isFinite(accelDataLineal.x) || !isFinite(accelDataLineal.y) || !isFinite(accelDataLineal.z)) return prevHistory;
+            const updatedHistory = [...prevHistory, accelDataLineal];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
         return () => {
-            if (accelLinealSubscriptionRef.current) accelLinealSubscriptionRef.current.remove();
         };
-    }, [navigation]);
+    }, [navigation, accelDataLineal]);
 
     return (
         <View style={styles.screen}>
@@ -75,7 +58,7 @@ export default function AceleracionLineal() {
                     <FontAwesome5 name='arrow-right' size={20} style={styles.icon} />
                     <Text style={styles.title}>Aceleracion lineal</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(accelDataLineal.x ).toFixed(5)} m/s²</Text>
+                <Text style={styles.dataText}>X: {(accelDataLineal.x).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Y: {(accelDataLineal.y).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Z: {(accelDataLineal.z).toFixed(5)} m/s²</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
@@ -95,13 +78,13 @@ export default function AceleracionLineal() {
                         chartConfig={{
                             backgroundGradientFrom: '#ffffff',
                             backgroundGradientTo: '#ffffff',
-                            decimalPlaces: 5,
+                            decimalPlaces: 2,
                             color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             style: { borderRadius: 16 },
                             propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
                             propsForLabels: {
-                                fontSize: 8,
+                                fontSize: 10,
                             }
                         }}
                         bezier

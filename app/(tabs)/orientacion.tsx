@@ -4,6 +4,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
 
 interface OrientationData {
     x: number;
@@ -12,7 +13,7 @@ interface OrientationData {
 }
 
 export default function Orientacion() {
-    const [orientation, setOrientation] = useState({ x: 0, y: 0, z: 0 });
+    const { orientation } = useSensors();
     const [oriHistory, setOriHistory] = useState<OrientationData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
@@ -22,17 +23,17 @@ export default function Orientacion() {
 
     const radianesAGrados = (radianes: number) => {
         return (radianes * 180) / Math.PI;
-      };
+    };
 
     const normalizarRango = (valor: number) => {
         let grados = valor % 360;
         if (grados > 180) {
-          grados -= 360;
+            grados -= 360;
         } else if (grados < -180) {
-          grados += 360;
+            grados += 360;
         }
         return grados;
-      };
+    };
 
     useEffect(() => {
         navigation.setOptions({
@@ -50,25 +51,11 @@ export default function Orientacion() {
 
 
         const asincronia = async () => {
-            const isAvailable = await DeviceMotion.isAvailableAsync();
-            if (isAvailable) {
-                DeviceMotion.setUpdateInterval(500);
-                oriSubscriptionRef.current = DeviceMotion.addListener((data) => {
-                    if (data.rotation) {
-                        setOrientation({
-                            z: normalizarRango(radianesAGrados(data.rotation.alpha)),
-                            x: normalizarRango(radianesAGrados(data.rotation.beta)),
-                            y: normalizarRango(radianesAGrados(data.rotation.gamma)),
-                        });
-
-                        setOriHistory(prevHistory => {
-                            if (!isFinite(normalizarRango(radianesAGrados(data.rotation.beta))) || !isFinite(normalizarRango(radianesAGrados(data.rotation.gamma))) || !isFinite(normalizarRango(radianesAGrados(data.rotation.alpha)))) return prevHistory;
-                            const updatedHistory = [...prevHistory, orientation];
-                            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                        });
-                    }
-                });
-            }
+            setOriHistory(prevHistory => {
+                if (!isFinite(orientation.x) || !isFinite(orientation.y) || !isFinite(orientation.z)) return prevHistory;
+                const updatedHistory = [...prevHistory, orientation];
+                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+            });
         };
 
         asincronia();
@@ -76,9 +63,9 @@ export default function Orientacion() {
         return () => {
             if (oriSubscriptionRef.current) oriSubscriptionRef.current.remove();
         };
-    }, [navigation]);
+    }, [navigation,orientation]);
 
-    
+
 
     return (
         <View style={styles.screen}>

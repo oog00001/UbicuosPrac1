@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Card, Title } from 'react-native-paper';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
@@ -9,9 +9,15 @@ import useSensors from '../../hooks/useSensors';
 
 export default function SensorsScreen() {
   const navigation = useNavigation();
-  const { dateTime, accelData, magData, location, gyroData, ipData, tipoConexion, 
-    conexion, gravity, batteryLevel, batteryState, lowPowerMode, accelDataLineal, 
+  const { dateTime, accelData, magData, location, gyroData, ipData, tipoConexion,
+    conexion, gravity, batteryLevel, batteryState, lowPowerMode, accelDataLineal,
     vectorRotacionData, orientation, lightIntensity } = useSensors();
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Sensores',
+    });
+  });
 
   return (
     <ScrollView style={styles.container}>

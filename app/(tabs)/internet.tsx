@@ -5,14 +5,11 @@ import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Network from 'expo-network';
+import useSensors from '../../hooks/useSensors';
 
 
 export default function Internet() {
-    const [ipData, setIpData] = useState('');
-    const [tipoConexion, setTipoConexion] = useState('');
-    const [conexion, setConexion] = useState('');
-    const [accesible, setAccesible] = useState('');
-    const [avion, setavion] = useState('');
+    const { ipData, tipoConexion, conexion, accesible, avion } = useSensors();
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const inetnetSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
@@ -31,40 +28,7 @@ export default function Internet() {
             ),
         });
 
-
-        const asincronia = async () => {
-            setIpData(await Network.getIpAddressAsync());
-                  const tipoCon = await Network.getNetworkStateAsync();
-                  let tipoConexionText = '';
-                  if (tipoCon.type) {
-                    switch (tipoCon.type.toLowerCase()) {
-                      case 'wifi':
-                        tipoConexionText = 'WiFi';
-                        break;
-                      case 'cellular':
-                        tipoConexionText = 'datos móviles';
-                        break;
-                      case 'unknown':
-                        tipoConexionText = 'desconocido';
-                        break;
-                      case 'none':
-                        tipoConexionText = 'sin conexión';
-                        break;
-                      default:
-                        tipoConexionText = 'desconocida';
-                    }
-                    setTipoConexion(tipoConexionText);
-                  }
-                  setConexion(tipoCon.isConnected ? 'sí' : 'no');
-
-                  setAccesible(tipoCon.isInternetReachable ? 'sí' : 'no');
-                  const nn = await Network.isAirplaneModeEnabledAsync();
-                  setavion(nn ? 'sí' : 'no');
-
-        };
-        asincronia();
         return () => {
-            if (inetnetSubscriptionRef.current) inetnetSubscriptionRef.current.remove();
         };
     }, [navigation]);
 
@@ -86,7 +50,6 @@ export default function Internet() {
                 <Text style={styles.dataText}>Dirección IP: {ipData} </Text>
                 <Text style={styles.dataText}>Es accesible Internet: {accesible} </Text>
                 <Text style={styles.dataText}>Modo avión activo: {avion} </Text>
-                <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
             </View>
         </View>
     );

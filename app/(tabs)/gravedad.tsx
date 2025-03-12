@@ -4,6 +4,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
 
 interface GravityData {
     x: number;
@@ -12,7 +13,7 @@ interface GravityData {
 }
 
 export default function Orientacion() {
-     const [gravity, setGravity] = useState({ x: 0, y: 0, z: 0 });
+    const { gravity } = useSensors();
     const [garvityHistory, setGravityHistory] = useState<GravityData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
@@ -33,31 +34,16 @@ export default function Orientacion() {
                 />
             ),
         });
-
-
-        const asincronia = async () => {
-            const isAvailable = await DeviceMotion.isAvailableAsync();
-            if (isAvailable) {
-                DeviceMotion.setUpdateInterval(500);
-                gravitySubscriptionRef.current = DeviceMotion.addListener((data) => {
-                    if (data.accelerationIncludingGravity) {
-                        setGravity(data.accelerationIncludingGravity);
-                        setGravityHistory(prevHistory => {
-                            if (!isFinite(data.accelerationIncludingGravity.x) || !isFinite(data.accelerationIncludingGravity.y) || !isFinite(data.accelerationIncludingGravity.z)) return prevHistory;
-                            const updatedHistory = [...prevHistory, data.accelerationIncludingGravity];
-                            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                        });
-                    }
-                });
-            }
-        };
-
-        asincronia();
+        setGravityHistory(prevHistory => {
+            if (!isFinite(gravity.x) || !isFinite(gravity.y) || !isFinite(gravity.z)) return prevHistory;
+            const updatedHistory = [...prevHistory, gravity];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
         return () => {
             if (gravitySubscriptionRef.current) gravitySubscriptionRef.current.remove();
         };
-    }, [navigation]);
+    }, [navigation,gravity]);
 
     return (
         <View style={styles.screen}>
