@@ -4,6 +4,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { Accelerometer } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
 
 interface AccelerometerData {
     x: number;
@@ -12,7 +13,7 @@ interface AccelerometerData {
 }
 
 export default function Acelerometro() {
-    const [accelData, setAccelData] = useState({ x: 0, y: 0, z: 0 });
+    const { accelData } = useSensors();
     const [accelHistory, setAccelHistory] = useState<AccelerometerData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
@@ -36,7 +37,6 @@ export default function Acelerometro() {
 
         Accelerometer.setUpdateInterval(500);
         accelSubscriptionRef.current = Accelerometer.addListener((data: AccelerometerData) => {
-            setAccelData(data);
             setAccelHistory(prevHistory => {
                 if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
                 const updatedHistory = [...prevHistory, data];
@@ -48,6 +48,16 @@ export default function Acelerometro() {
             if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
         };
     }, [navigation]);
+
+    useEffect(() => {
+        setAccelHistory((prevHistory) => {
+            if (!isFinite(accelData.x) || !isFinite(accelData.y) || !isFinite(accelData.z)) {
+                return prevHistory;
+            }
+            const updatedHistory = [...prevHistory, accelData];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
+    }, [accelData]);
 
     return (
         <View style={styles.screen}>
