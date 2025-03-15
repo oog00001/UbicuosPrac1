@@ -35,18 +35,18 @@ const useSensors = () => {
 
     const accelSubscriptionRef = useRef(null);
     const magSubscriptionRef = useRef(null);
-    const stepSubscriptionRef = useRef(null);
     const gyroSubscriptionRef = useRef(null);
     const vectorRotationRef = useRef(null);
 
     const [lightIntensity, setLightIntensity] = useState(0);
 
     useEffect(() => {
-
-        // Sensor de luz
+        // Sensor de luz con verificación de valor
         const subscribe = () => {
             LightSensor.addListener((data) => {
-                setLightIntensity(data.illuminance);
+                setLightIntensity((prev) =>
+                    prev === data.illuminance ? prev : data.illuminance
+                );
             });
         };
 
@@ -82,44 +82,124 @@ const useSensors = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            // Acelerómetro
-            Accelerometer.setUpdateInterval(500);
-            accelSubscriptionRef.current = Accelerometer.addListener(setAccelData);
+            // Acelerómetro con verificación
+            Accelerometer.setUpdateInterval(2000);
+            accelSubscriptionRef.current = Accelerometer.addListener((data) => {
+                setAccelData((prev) =>
+                    prev.x === data.x && prev.y === data.y && prev.z === data.z
+                        ? prev
+                        : data
+                );
+            });
 
-            // Magnetómetro
-            Magnetometer.setUpdateInterval(500);
-            magSubscriptionRef.current = Magnetometer.addListener(setMagData);
+            // Magnetómetro con verificación
+            Magnetometer.setUpdateInterval(2000);
+            magSubscriptionRef.current = Magnetometer.addListener((data) => {
+                setMagData((prev) =>
+                    prev.x === data.x && prev.y === data.y && prev.z === data.z
+                        ? prev
+                        : data
+                );
+            });
 
             // Ubicación
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status === 'granted') {
                 const loc = await Location.getCurrentPositionAsync({});
-                setLocation({
-                    latitude: loc.coords.latitude,
-                    longitude: loc.coords.longitude,
-                    altitude: loc.coords.altitude ?? 0,
+                const { latitude, longitude, accuracy, altitude, heading, speed } = loc.coords;
+
+                // Obtención de la ciudad mediante geocodificación inversa
+                let city = '';
+                try {
+                    const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+                    if (geo && geo.length > 0) {
+                        // Se obtiene la ciudad o, en su defecto, la región
+                        city = geo[0].city || geo[0].region || '';
+                    }
+                } catch (error) {
+                    console.error("Error al obtener la ciudad:", error);
+                }
+
+                setLocation((prev) => {
+                    const newLoc = { city, latitude, longitude, accuracy, altitude, heading, speed };
+                    // Verificar que algún valor haya cambiado antes de actualizar el estado
+                    if (
+                        prev.city === newLoc.city &&
+                        prev.latitude === newLoc.latitude &&
+                        prev.longitude === newLoc.longitude &&
+                        prev.accuracy === newLoc.accuracy &&
+                        prev.altitude === newLoc.altitude &&
+                        prev.heading === newLoc.heading &&
+                        prev.speed === newLoc.speed
+                    ) {
+                        return prev;
+                    }
+                    return { ...prev, ...newLoc };
                 });
             }
 
-            // Giroscopio
-            Gyroscope.setUpdateInterval(500);
-            gyroSubscriptionRef.current = Gyroscope.addListener(setGyroData);
+            // Giroscopio con verificación
+            Gyroscope.setUpdateInterval(2000);
+            gyroSubscriptionRef.current = Gyroscope.addListener((data) => {
+                setGyroData((prev) =>
+                    prev.x === data.x && prev.y === data.y && prev.z === data.z
+                        ? prev
+                        : data
+                );
+            });
 
             // DeviceMotion (orientación y gravedad)
             const isAvailable = await DeviceMotion.isAvailableAsync();
             if (isAvailable) {
-                DeviceMotion.setUpdateInterval(500);
+                DeviceMotion.setUpdateInterval(2000);
                 vectorRotationRef.current = DeviceMotion.addListener((data) => {
                     if (data.rotation) {
-                        setOrientation({
+                        const newOrientation = {
                             z: normalizarRango(radianesAGrados(data.rotation.alpha)),
                             x: normalizarRango(radianesAGrados(data.rotation.beta)),
                             y: normalizarRango(radianesAGrados(data.rotation.gamma))
+                        };
+                        setOrientation((prevOrientation) => {
+                            if (
+                                prevOrientation.x === newOrientation.x &&
+                                prevOrientation.y === newOrientation.y &&
+                                prevOrientation.z === newOrientation.z
+                            ) {
+                                return prevOrientation;
+                            }
+                            return newOrientation;
                         });
                     }
-                    if (data.accelerationIncludingGravity) setGravity(data.accelerationIncludingGravity);
-                    if (data.rotationRate) setVectorRotacionData(data.rotationRate);
-                    if (data.acceleration) setAccelDataLineal(data.acceleration);
+                    if (data.accelerationIncludingGravity) {
+                        setGravity((prev) => {
+                            if (
+                                prev.x === data.accelerationIncludingGravity.x &&
+                                prev.y === data.accelerationIncludingGravity.y &&
+                                prev.z === data.accelerationIncludingGravity.z
+                            ) {
+                                return prev;
+                            }
+                            return data.accelerationIncludingGravity;
+                        });
+                    }
+                    if (data.rotationRate) {
+                        setVectorRotacionData((prev) =>
+                            prev.alpha === data.rotationRate.alpha &&
+                                prev.beta === data.rotationRate.beta &&
+                                prev.gamma === data.rotationRate.gamma
+                                ? prev
+                                : data.rotationRate
+                        );
+                    }
+                    if (data.acceleration) {
+                        setAccelDataLineal((prev) =>
+                            prev.x === data.acceleration.x &&
+                                prev.y === data.acceleration.y &&
+                                prev.z === data.acceleration.z
+                                ? prev
+                                : data.acceleration
+                        );
+                    }
                 });
             }
         };
@@ -127,7 +207,6 @@ const useSensors = () => {
         fetchData();
 
         return () => {
-            // Eliminamos suscripciones cuando el componente se desmonta
             if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
             if (magSubscriptionRef.current) magSubscriptionRef.current.remove();
             if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
@@ -139,7 +218,9 @@ const useSensors = () => {
         const fetchBattery = async () => {
             // Batería
             const batteryLevelValue = await Battery.getBatteryLevelAsync();
-            setBatteryLevel(batteryLevelValue * 100);
+            setBatteryLevel((prev) =>
+                prev === batteryLevelValue * 100 ? prev : batteryLevelValue * 100
+            );
 
             const batteryStateValue = await Battery.getBatteryStateAsync();
 
@@ -157,20 +238,20 @@ const useSensors = () => {
                 default:
                     batteryStateText = 'desconocido';
             }
-            setBatteryState(batteryStateText);
+            setBatteryState((prev) =>
+                prev === batteryStateText ? prev : batteryStateText
+            );
 
             const lowPowerModeValue = await Battery.isLowPowerModeEnabledAsync();
+            const lowPowerModeText = lowPowerModeValue ? 'activado' : 'desactivado';
+            setLowPowerMode((prev) =>
+                prev === lowPowerModeText ? prev : lowPowerModeText
+            );
 
-            let lowPowerModeText = '';
-            if (!lowPowerModeValue) {
-                lowPowerModeText = 'desactivado';
-            } else {
-                lowPowerModeText = 'activado';
-            }
-            setLowPowerMode(lowPowerModeText);
+            // WiFi y red
+            const newIpData = await Network.getIpAddressAsync();
+            setIpData((prev) => (prev === newIpData ? prev : newIpData));
 
-            // WiFi
-            setIpData(await Network.getIpAddressAsync());
             const tipoCon = await Network.getNetworkStateAsync();
             let tipoConexionText = '';
             if (tipoCon.type) {
@@ -190,17 +271,33 @@ const useSensors = () => {
                     default:
                         tipoConexionText = 'desconocida';
                 }
-                setTipoConexion(tipoConexionText);
+                setTipoConexion((prev) =>
+                    prev === tipoConexionText ? prev : tipoConexionText
+                );
             }
-            setConexion(tipoCon.isConnected ? 'sí' : 'no');
+            setConexion((prev) =>
+                prev === (tipoCon.isConnected ? 'sí' : 'no')
+                    ? prev
+                    : (tipoCon.isConnected ? 'sí' : 'no')
+            );
 
-            setAccesible(tipoCon.isInternetReachable ? 'sí' : 'no');
-            const nn = await Network.isAirplaneModeEnabledAsync();
-            setavion(nn ? 'sí' : 'no');
+            setAccesible((prev) =>
+                prev === (tipoCon.isInternetReachable ? 'sí' : 'no')
+                    ? prev
+                    : (tipoCon.isInternetReachable ? 'sí' : 'no')
+            );
+
+            const isAirplaneMode = await Network.isAirplaneModeEnabledAsync();
+            setavion((prev) =>
+                prev === (isAirplaneMode ? 'sí' : 'no')
+                    ? prev
+                    : (isAirplaneMode ? 'sí' : 'no')
+            );
         };
 
-        fetchBattery();
-    }, [accelData, gravity]);
+        const interval = setInterval(fetchBattery, 2000);
+        return () => clearInterval(interval);
+    }, []);
 
     return {
         dateTime, accelData, magData, location, gyroData, ipData, tipoConexion,

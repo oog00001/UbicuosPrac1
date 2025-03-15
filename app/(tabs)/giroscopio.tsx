@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Gyroscope } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
@@ -18,7 +17,6 @@ export default function Giroscopio() {
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const gyroSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -42,9 +40,6 @@ export default function Giroscopio() {
             return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
 
-        return () => {
-            if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
-        };
     }, [navigation, gyroData]);
 
     return (

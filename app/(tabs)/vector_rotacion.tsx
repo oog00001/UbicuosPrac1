@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
@@ -18,7 +17,6 @@ export default function VectorRotacion() {
         Array.from({ length: 20 }, () => ({ alpha: 0, beta: 0, gamma: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const vectorLinealSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -40,10 +38,8 @@ export default function VectorRotacion() {
             const updatedHistory = [...prevHistory, vectorRotacionData];
             return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
-        return () => {
-            if (vectorLinealSubscriptionRef.current) vectorLinealSubscriptionRef.current.remove();
-        };
-    }, [navigation,vectorRotacionData]);
+
+    }, [navigation, vectorRotacionData]);
 
     return (
         <View style={styles.screen}>

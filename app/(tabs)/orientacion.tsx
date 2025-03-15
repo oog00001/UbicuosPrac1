@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
@@ -18,26 +17,11 @@ export default function Orientacion() {
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const oriSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
-
-    const radianesAGrados = (radianes: number) => {
-        return (radianes * 180) / Math.PI;
-    };
-
-    const normalizarRango = (valor: number) => {
-        let grados = valor % 360;
-        if (grados > 180) {
-            grados -= 360;
-        } else if (grados < -180) {
-            grados += 360;
-        }
-        return grados;
-    };
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Orientacion",
+            title: "Orientación",
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -50,22 +34,13 @@ export default function Orientacion() {
         });
 
 
-        const asincronia = async () => {
-            setOriHistory(prevHistory => {
-                if (!isFinite(orientation.x) || !isFinite(orientation.y) || !isFinite(orientation.z)) return prevHistory;
-                const updatedHistory = [...prevHistory, orientation];
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-            });
-        };
+        setOriHistory(prevHistory => {
+            if (!isFinite(orientation.x) || !isFinite(orientation.y) || !isFinite(orientation.z)) return prevHistory;
+            const updatedHistory = [...prevHistory, orientation];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
-        asincronia();
-
-        return () => {
-            if (oriSubscriptionRef.current) oriSubscriptionRef.current.remove();
-        };
-    }, [navigation,orientation]);
-
-
+    }, [navigation, orientation]);
 
     return (
         <View style={styles.screen}>
@@ -78,7 +53,7 @@ export default function Orientacion() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='compass' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Orientacion</Text>
+                    <Text style={styles.title}>Orientación</Text>
                 </View>
                 <Text style={styles.dataText}>X: {(orientation.x).toFixed(5)} °</Text>
                 <Text style={styles.dataText}>Y: {(orientation.y).toFixed(5)} °</Text>

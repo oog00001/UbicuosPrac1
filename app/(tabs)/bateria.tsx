@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Battery from 'expo-battery';
 import useSensors from '../../hooks/useSensors';
 
 interface BatteryData {
@@ -12,9 +10,7 @@ interface BatteryData {
 }
 
 export default function BatteryFuncion() {
-
     const { batteryLevel, batteryState, lowPowerMode } = useSensors();
-
     const [batteryHistory, setBatteryHistory] = useState<BatteryData[]>(
         Array.from({ length: 20 }, () => ({ level: 0 }))
     );
@@ -23,7 +19,7 @@ export default function BatteryFuncion() {
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Bateria",
+            title: "Batería",
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -41,9 +37,7 @@ export default function BatteryFuncion() {
             return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
 
-        return () => {
-        };
-    }, [navigation,batteryLevel]);
+    }, [navigation, batteryLevel]);
 
     return (
         <View style={styles.screen}>
@@ -56,11 +50,11 @@ export default function BatteryFuncion() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='battery-half' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Bateria</Text>
+                    <Text style={styles.title}>Batería</Text>
                 </View>
                 <Text style={styles.dataText}>Nivel: {Math.floor(batteryLevel)}%</Text>
                 <Text style={styles.dataText}>Estado: {batteryState}</Text>
-                <Text style={styles.dataText}>Ahorro de energia: {String(lowPowerMode)}</Text>
+                <Text style={styles.dataText}>Ahorro de energía: {String(lowPowerMode)}</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart

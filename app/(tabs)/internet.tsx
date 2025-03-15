@@ -1,17 +1,12 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Network from 'expo-network';
 import useSensors from '../../hooks/useSensors';
 
 
 export default function Internet() {
     const { ipData, tipoConexion, conexion, accesible, avion } = useSensors();
-    const [containerWidth, setContainerWidth] = useState<number>(0);
-    const inetnetSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -27,20 +22,11 @@ export default function Internet() {
                 />
             ),
         });
-
-        return () => {
-        };
     }, [navigation]);
 
     return (
         <View style={styles.screen}>
-            <View
-                style={styles.container}
-                onLayout={(event) => {
-                    const { width } = event.nativeEvent.layout;
-                    setContainerWidth(width);
-                }}
-            >
+            <View style={styles.container}>
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='wifi' size={20} style={styles.icon} />
                     <Text style={styles.title}>Internet</Text>

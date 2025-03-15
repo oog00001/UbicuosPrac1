@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import {  LightSensor } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
@@ -13,10 +12,9 @@ interface LuzData {
 export default function LuzFuction() {
     const { lightIntensity } = useSensors();
     const [luzHistory, setLuzHistory] = useState<LuzData[]>(
-        Array.from({ length: 20 }, () => ({ luz: 0}))
+        Array.from({ length: 20 }, () => ({ luz: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const luzSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -33,15 +31,13 @@ export default function LuzFuction() {
             ),
         });
 
-            setLuzHistory(prevHistory => {
-                if (!isFinite(lightIntensity) ) return prevHistory;
-                const updatedHistory = [...prevHistory,  { luz: lightIntensity }];
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-            });
+        setLuzHistory(prevHistory => {
+            if (!isFinite(lightIntensity)) return prevHistory;
+            const updatedHistory = [...prevHistory, { luz: lightIntensity }];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
-        return () => {
-        };
-    }, [navigation,lightIntensity]);
+    }, [navigation, lightIntensity]);
 
     return (
         <View style={styles.screen}>
@@ -56,7 +52,7 @@ export default function LuzFuction() {
                     <FontAwesome5 name='lightbulb' size={20} style={styles.icon} />
                     <Text style={styles.title}>Luz</Text>
                 </View>
-                <Text style={styles.dataText}>{Platform.OS === 'android' ? `${lightIntensity.toFixed(2)} lx` : `Only available on Android`}</Text>
+                <Text style={styles.dataText}>{Platform.OS === 'android' ? `${lightIntensity.toFixed(2)} lx` : `Solo disponible en Android`}</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
@@ -68,7 +64,7 @@ export default function LuzFuction() {
                         }}
                         width={containerWidth}
                         height={220}
-                        yAxisSuffix=' m/s²'
+                        yAxisSuffix=' lx'
                         chartConfig={{
                             backgroundGradientFrom: '#ffffff',
                             backgroundGradientTo: '#ffffff',

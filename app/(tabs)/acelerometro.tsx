@@ -34,16 +34,13 @@ export default function Acelerometro() {
             ),
         });
 
-        Accelerometer.setUpdateInterval(500);
         setAccelHistory(prevHistory => {
             if (!isFinite(accelData.x) || !isFinite(accelData.y) || !isFinite(accelData.z)) return prevHistory;
             const updatedHistory = [...prevHistory, accelData];
             return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
 
-        return () => {
-        };
-    }, [navigation,accelData]);
+    }, [navigation, accelData]);
 
     useEffect(() => {
         setAccelHistory((prevHistory) => {

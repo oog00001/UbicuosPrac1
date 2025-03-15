@@ -14,7 +14,7 @@ interface MagnetometerData {
 export default function Magnetometro() {
     const { magData } = useSensors();
     const navigation = useNavigation();
-    
+
     const [magHistory, setMagHistory] = useState<MagnetometerData[]>(() =>
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
@@ -23,7 +23,7 @@ export default function Magnetometro() {
 
     useEffect(() => {
         navigation.setOptions({
-            title: 'Magnetómetro',
+            title: 'Campo Geomagnético',
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -34,9 +34,7 @@ export default function Magnetometro() {
                 />
             ),
         });
-    }, [navigation]);
 
-    useEffect(() => {
         setMagHistory((prevHistory) => {
             if (!isFinite(magData.x) || !isFinite(magData.y) || !isFinite(magData.z)) {
                 return prevHistory;
@@ -51,7 +49,7 @@ export default function Magnetometro() {
             duration: 300,
             useNativeDriver: true,
         }).start();
-    }, [magData]);
+    }, [navigation, magData]);
 
     const rotateInterpolate = rotateAnim.interpolate({
         inputRange: [-180, 180],
@@ -69,7 +67,7 @@ export default function Magnetometro() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='magnet' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Magnetómetro</Text>
+                    <Text style={styles.title}>Campo Geomagnético</Text>
                 </View>
                 <Text style={styles.dataText}>X: {magData.x.toFixed(5)} μT</Text>
                 <Text style={styles.dataText}>Y: {magData.y.toFixed(5)} μT</Text>
@@ -177,12 +175,18 @@ const styles = StyleSheet.create({
     compassContainer: {
         width: 200,
         height: 200,
+        borderRadius: 100,
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
+        backgroundColor: '#f0f0f0',
+        alignSelf: 'center',
     },
     compass: {
         width: 150,
         height: 150,
+        borderRadius: 75,
+        resizeMode: 'cover',
+        position: 'absolute',
     },
 });

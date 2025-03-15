@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 
-interface accelLinealData {
+interface AccelLinealData {
     x: number;
     y: number;
     z: number;
@@ -14,16 +13,15 @@ interface accelLinealData {
 
 export default function AceleracionLineal() {
     const { accelDataLineal } = useSensors();
-    const [accelLinealHistory, setAccelLinealHistory] = useState<accelLinealData[]>(
+    const [accelLinealHistory, setAccelLinealHistory] = useState<AccelLinealData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const accelLinealSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Aceleracion lineal",
+            title: "Aceleración lineal",
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -41,8 +39,6 @@ export default function AceleracionLineal() {
             return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
 
-        return () => {
-        };
     }, [navigation, accelDataLineal]);
 
     return (
@@ -56,7 +52,7 @@ export default function AceleracionLineal() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='arrow-right' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Aceleracion lineal</Text>
+                    <Text style={styles.title}>Aceleración lineal</Text>
                 </View>
                 <Text style={styles.dataText}>X: {(accelDataLineal.x).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Y: {(accelDataLineal.y).toFixed(5)} m/s²</Text>

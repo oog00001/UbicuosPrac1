@@ -129,7 +129,7 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {gravity.x.toFixed(5)}  m/s²</Text>
+            <Text>X: {gravity.x.toFixed(5)} m/s²</Text>
             <Text>Y: {gravity.y.toFixed(5)} m/s²</Text>
             <Text>Z: {gravity.z.toFixed(5)} m/s²</Text>
           </Card.Content>
