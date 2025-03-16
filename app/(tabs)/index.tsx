@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Card, Title } from 'react-native-paper';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
@@ -10,19 +10,25 @@ import useSensors from '../../hooks/useSensors';
 export default function SensorsScreen() {
   const navigation = useNavigation();
   const sensorData = useSensors();
+  const prevSensorDataRef = useRef(sensorData); // Para almacenar el valor anterior de los datos del sensor
+  const [lastSentTime, setLastSentTime] = useState(Date.now()); // Para almacenar el último momento en que enviamos los datos
 
   useEffect(() => {
-    navigation.setOptions({
-      title: 'Sensores',
-    });
-  }, []);
+    const currentTime = Date.now();
+
+    // Verifica si los datos han cambiado y han pasado al menos 10 segundos
+    if (
+      sensorData !== prevSensorDataRef.current &&
+      currentTime - lastSentTime >= 10000
+    ) {
+      prevSensorDataRef.current = sensorData; // Actualiza el valor anterior
+      setLastSentTime(currentTime); // Actualiza el último momento de envío
+      sendSensorDataToFirebase(); // Envía los datos a Firebase
+    }
+  }, [sensorData, lastSentTime]);
 
   const sendSensorDataToFirebase = async () => {
     if (!sensorData) return;
-
-    console.log("Acelerómetro:", sensorData.accelData);
-    console.log("Magnetómetro:", sensorData.magData);
-    console.log("Ubicación:", sensorData.location);
 
     try {
       const timestamp = new Date().toISOString();
@@ -109,24 +115,6 @@ export default function SensorsScreen() {
       console.error('Error al enviar datos:', error);
     }
   };
-
-  // Enviar datos automáticamente cada 10 segundos
-  useEffect(() => {
-    const sendData = async () => {
-      try {
-        await sendSensorDataToFirebase();
-      } catch (error) {
-        console.error('Error al enviar datos:', error);
-      }
-    };
-  
-    const interval = setInterval(sendData, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (!sensorData) {
-    return <Text>Cargando datos...</Text>;
-  }
 
   return (
     <ScrollView style={styles.container}>
