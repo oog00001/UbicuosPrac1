@@ -4,6 +4,11 @@ import { LineChart } from 'react-native-chart-kit';
 import { Accelerometer } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
+
+import { db, collection } from './firebaseConfig'; // Importa Firebase
+import { onSnapshot, query, orderBy, limit } from "firebase/firestore";
+
 
 interface AccelerometerData {
     x: number;
@@ -12,13 +17,17 @@ interface AccelerometerData {
 }
 
 export default function Acelerometro() {
-    const [accelData, setAccelData] = useState({ x: 0, y: 0, z: 0 });
+    const { accelData } = useSensors();
     const [accelHistory, setAccelHistory] = useState<AccelerometerData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const accelSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
+
+    const [fireHistory, setFireHistory] = useState<AccelerometerData[]>([]);
+    const [firebaseData, setFirebaseData] = useState<AccelerometerData[]>([]);
+
 
     useEffect(() => {
         navigation.setOptions({
@@ -36,7 +45,6 @@ export default function Acelerometro() {
 
         Accelerometer.setUpdateInterval(500);
         accelSubscriptionRef.current = Accelerometer.addListener((data: AccelerometerData) => {
-            setAccelData(data);
             setAccelHistory(prevHistory => {
                 if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
                 const updatedHistory = [...prevHistory, data];
@@ -48,6 +56,44 @@ export default function Acelerometro() {
             if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
         };
     }, [navigation]);
+
+    useEffect(() => {
+        setAccelHistory((prevHistory) => {
+            if (!isFinite(accelData.x) || !isFinite(accelData.y) || !isFinite(accelData.z)) {
+                return prevHistory;
+            }
+            const updatedHistory = [...prevHistory, accelData];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
+    }, [accelData]);
+
+
+
+
+    //fireBase
+    useEffect(() => {
+        const accelCollection = collection(db, "acelerometro");
+        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as AccelerometerData);
+            setFirebaseData(data);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // el segundo historial
+    useEffect(() => {
+        if (firebaseData.length > 0) {
+            const interval = setInterval(() => {
+                setFireHistory((prevHistory) => {
+                    const newData = firebaseData.slice(prevHistory.length, prevHistory.length + 1); 
+                    const updatedHistory = [...prevHistory, ...newData];
+                    return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory; 
+                });
+            }, 10000); 
+            return () => clearInterval(interval); 
+        }
+    }, [firebaseData]);
 
     return (
         <View style={styles.screen}>
@@ -95,6 +141,34 @@ export default function Acelerometro() {
                     />
                 )}
                 <Text style={styles.historyText}>Histórico:</Text>
+                {containerWidth > 0 && (
+                    <LineChart
+                        data={{
+                            labels: [],
+                            datasets: [
+                                { data: fireHistory.map(d => isFinite(d.x) ? d.x * 10 : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: fireHistory.map(d => isFinite(d.y) ? d.y * 10 : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: fireHistory.map(d => isFinite(d.z) ? d.z * 10 : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                            ]
+                        }}
+                        width={containerWidth}
+                        height={220}
+                        yAxisSuffix=' m/s²'
+                        chartConfig={{
+                            backgroundGradientFrom: '#ffffff',
+                            backgroundGradientTo: '#ffffff',
+                            decimalPlaces: 2,
+                            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                            style: { borderRadius: 16 },
+                            propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
+                            propsForLabels: {
+                                fontSize: 10,
+                            }
+                        }}
+                        bezier
+                    />
+                )}
             </View>
         </View>
     );

@@ -1,213 +1,120 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Card, Title } from 'react-native-paper';
-import { Accelerometer, Magnetometer, Gyroscope, DeviceMotion, LightSensor } from 'expo-sensors';
-import * as Location from 'expo-location';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { db, addDoc, collection } from './firebaseConfig';
 import { useNavigation } from '@react-navigation/native';
 import { TouchableOpacity } from 'react-native';
-import * as Battery from 'expo-battery';
-import * as Network from 'expo-network';
+import useSensors from '../../hooks/useSensors';
 
 export default function SensorsScreen() {
-  const [dateTime, setDateTime] = useState(new Date());
-  const [accelData, setAccelData] = useState({ x: 0, y: 0, z: 0 });
-  const [magData, setMagData] = useState({ x: 0, y: 0, z: 0 });
-  const [location, setLocation] = useState({ latitude: 0, longitude: 0, altitude: 0 });
   const navigation = useNavigation();
-  const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
-  const [ipData, setIpData] = useState('');
-  const [tipoConexion, setTipoConexion] = useState('');
-  const [conexion, setConexion] = useState('');
-
-  const [gravity, setGravity] = useState({ x: 0, y: 0, z: 0 });
-  const [batteryLevel, setBatteryLevel] = useState(0);
-  const [batteryState, setBatteryState] = useState('');
-  const [lowPowerMode, setLowPowerMode] = useState('');
-  const [accelDataLineal, setAccelDataLineal] = useState({ x: 0, y: 0, z: 0 });
-  const [vectorRotacionData, setVectorRotacionData] = useState({ alpha: 0, beta: 0, gamma: 0 });
-  const [orientation, setOrientation] = useState({ x: 0, y: 0, z: 0 });
-
-  const accelSubscriptionRef = useRef<any>(null);
-  const magSubscriptionRef = useRef<any>(null);
-  const stepSubscriptionRef = useRef<any>(null);
-  const gyroSubscriptionRef = useRef<any>(null);
-  const vectorRotationRef = useRef<any>(null);
-
-  const [lightIntensity, setLightIntensity] = useState(0);
+  const sensorData = useSensors();
+  const prevSensorDataRef = useRef(sensorData); // Para almacenar el valor anterior de los datos del sensor
+  const [lastSentTime, setLastSentTime] = useState(Date.now()); // Para almacenar el último momento en que enviamos los datos
 
   useEffect(() => {
-    navigation.setOptions({
-      title: 'Sensores',
-    });
+    const currentTime = Date.now();
 
-    // Sensor de luz
-    const subscribe = () => {
-      LightSensor.addListener((data) => {
-        setLightIntensity(data.illuminance);
-      });
-    };
-
-    subscribe();
-
-    return () => {
-      LightSensor.removeAllListeners();
-    };
-  }, [navigation]);
-
-  const radianesAGrados = (radianes: number) => {
-    return (radianes * 180) / Math.PI;
-  };
-
-  // Función para normalizar el valor entre -360 y 360
-  const normalizarRango = (valor: number) => {
-    let grados = valor % 360;
-    if (grados > 180) {
-      grados -= 360;
-    } else if (grados < -180) {
-      grados += 360;
+    // Verifica si los datos han cambiado y han pasado al menos 10 segundos
+    if (
+      sensorData !== prevSensorDataRef.current &&
+      currentTime - lastSentTime >= 10000
+    ) {
+      prevSensorDataRef.current = sensorData; // Actualiza el valor anterior
+      setLastSentTime(currentTime); // Actualiza el último momento de envío
+      sendSensorDataToFirebase(); // Envía los datos a Firebase
     }
-    return grados;
+  }, [sensorData, lastSentTime]);
+
+  const sendSensorDataToFirebase = async () => {
+    if (!sensorData) return;
+
+    try {
+      const timestamp = new Date().toISOString();
+
+      await addDoc(collection(db, 'acelerometro'), {
+        timestamp,
+        x: sensorData.accelData?.x ?? 0,
+        y: sensorData.accelData?.y ?? 0,
+        z: sensorData.accelData?.z ?? 0,
+      });
+
+      await addDoc(collection(db, 'magnetometro'), {
+        timestamp,
+        x: sensorData.magData?.x ?? 0,
+        y: sensorData.magData?.y ?? 0,
+        z: sensorData.magData?.z ?? 0,
+      });
+
+      if (sensorData.location) {
+        await addDoc(collection(db, 'ubicacion'), {
+          timestamp,
+          latitude: sensorData.location?.latitude ?? 0,
+          longitude: sensorData.location?.longitude ?? 0,
+          altitude: sensorData.location?.altitude ?? 0,
+        });
+      }
+
+      await addDoc(collection(db, 'orientacion'), {
+        timestamp,
+        x: sensorData.orientation?.x ?? 0,
+        y: sensorData.orientation?.y ?? 0,
+        z: sensorData.orientation?.z ?? 0,
+      });
+
+      await addDoc(collection(db, 'gravedad'), {
+        timestamp,
+        x: sensorData.gravity?.x ?? 0,
+        y: sensorData.gravity?.y ?? 0,
+        z: sensorData.gravity?.z ?? 0,
+      });
+
+      await addDoc(collection(db, 'giroscopio'), {
+        timestamp,
+        x: sensorData.gyroData?.x ?? 0,
+        y: sensorData.gyroData?.y ?? 0,
+        z: sensorData.gyroData?.z ?? 0,
+      });
+
+      await addDoc(collection(db, 'vector_lineal'), {
+        timestamp,
+        x: sensorData.accelDataLineal?.x ?? 0,
+        y: sensorData.accelDataLineal?.y ?? 0,
+        z: sensorData.accelDataLineal?.z ?? 0,
+      });
+
+      await addDoc(collection(db, 'vector_rotacion'), {
+        timestamp,
+        x: sensorData.vectorRotacionData?.beta ?? 0,
+        y: sensorData.vectorRotacionData?.gamma ?? 0,
+        z: sensorData.vectorRotacionData?.alpha ?? 0,
+      });
+
+      await addDoc(collection(db, 'bateria'), {
+        timestamp,
+        nivel: Math.floor(sensorData.batteryLevel ?? 0),
+        estado: sensorData.batteryState ?? 'Desconocido',
+        ahorroEnergia: sensorData.lowPowerMode ?? false,
+      });
+
+      await addDoc(collection(db, 'internet'), {
+        timestamp,
+        conexion: sensorData.conexion ?? 'Desconocido',
+        tipoConexion: sensorData.tipoConexion ?? 'Desconocido',
+        ipData: sensorData.ipData ?? 'N/A',
+      });
+
+      await addDoc(collection(db, 'luz'), {
+        timestamp,
+        intensidad: sensorData.lightIntensity ?? 'Desconocido',
+      });
+
+      console.log('Datos enviados a Firebase.');
+    } catch (error) {
+      console.error('Error al enviar datos:', error);
+    }
   };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDateTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      // Acelerómetro
-      Accelerometer.setUpdateInterval(500);
-      accelSubscriptionRef.current = Accelerometer.addListener((data) => {
-        setAccelData(data);
-      });
-
-      // Magnetómetro
-      Magnetometer.setUpdateInterval(500);
-      magSubscriptionRef.current = Magnetometer.addListener((data) => {
-        setMagData(data);
-      });
-
-      // Ubicación
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          altitude: loc.coords.altitude ?? 0,
-        });
-      }
-
-      // Giroscopio
-      Gyroscope.setUpdateInterval(500);
-      gyroSubscriptionRef.current = Gyroscope.addListener((data) => {
-        setGyroData(data);
-      });
-
-      // Orientación, gravedad, vector de rotación y aceleración lineal
-      const isAvailable = await DeviceMotion.isAvailableAsync();
-      if (isAvailable) {
-        DeviceMotion.setUpdateInterval(500);
-        vectorRotationRef.current = DeviceMotion.addListener((data) => {
-          if (data.rotation) setOrientation({
-            z: normalizarRango(radianesAGrados(data.rotation.alpha)),
-            x: normalizarRango(radianesAGrados(data.rotation.beta)),
-            y: normalizarRango(radianesAGrados(data.rotation.gamma))
-          });
-          if (data.accelerationIncludingGravity) setGravity(data.accelerationIncludingGravity);
-          if (data.rotationRate) setVectorRotacionData(data.rotationRate);
-          if (data.acceleration) setAccelDataLineal(data.acceleration);
-        });
-      }
-
-      return () => {
-        clearInterval(interval);
-
-        if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
-        if (magSubscriptionRef.current) magSubscriptionRef.current.remove();
-        if (stepSubscriptionRef.current) stepSubscriptionRef.current.remove();
-        if (gyroSubscriptionRef.current) gyroSubscriptionRef.current.remove();
-        if (vectorRotationRef.current) vectorRotationRef.current.remove();
-
-      };
-    };
-
-    const interval = setInterval(fetchData, 500);
-
-    return () => clearInterval(interval);
-
-  }, []);
-
-  useEffect(() => {
-    const fetchBattery = async () => {
-      // Batería
-      const batteryLevelValue = await Battery.getBatteryLevelAsync();
-      setBatteryLevel(batteryLevelValue * 100);
-
-      const batteryStateValue = await Battery.getBatteryStateAsync();
-
-      let batteryStateText = '';
-      switch (batteryStateValue) {
-        case Battery.BatteryState.CHARGING:
-          batteryStateText = 'cargando';
-          break;
-        case Battery.BatteryState.FULL:
-          batteryStateText = 'batería llena';
-          break;
-        case Battery.BatteryState.UNPLUGGED:
-          batteryStateText = 'descarga';
-          break;
-        default:
-          batteryStateText = 'desconocido';
-      }
-      setBatteryState(batteryStateText);
-
-      const lowPowerModeValue = await Battery.isLowPowerModeEnabledAsync();
-
-      let lowPowerModeText = '';
-      if (!lowPowerModeValue) {
-        lowPowerModeText = 'desactivado';
-      } else {
-        lowPowerModeText = 'activado';
-      }
-      setLowPowerMode(lowPowerModeText);
-
-      // WiFi
-      setIpData(await Network.getIpAddressAsync());
-      const tipoCon = await Network.getNetworkStateAsync();
-      let tipoConexionText = '';
-      if (tipoCon.type) {
-        switch (tipoCon.type.toLowerCase()) {
-          case 'wifi':
-            tipoConexionText = 'WiFi';
-            break;
-          case 'cellular':
-            tipoConexionText = 'datos móviles';
-            break;
-          case 'unknown':
-            tipoConexionText = 'desconocido';
-            break;
-          case 'none':
-            tipoConexionText = 'sin conexión';
-            break;
-          default:
-            tipoConexionText = 'desconocida';
-        }
-        setTipoConexion(tipoConexionText);
-      }
-
-      setConexion(tipoCon.isConnected ? 'sí' : 'no');
-    };
-
-    fetchBattery();
-  }, [accelData, gravity]);
-
 
   return (
     <ScrollView style={styles.container}>
@@ -223,9 +130,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {(accelData.x * 10).toFixed(5)} m/s²</Text>
-            <Text>Y: {(accelData.y * 10).toFixed(5)} m/s²</Text>
-            <Text>Z: {(accelData.z * 10).toFixed(5)} m/s²</Text>
+            <Text>X: {(sensorData.accelData.x * 10).toFixed(5)} m/s²</Text>
+            <Text>Y: {(sensorData.accelData.y * 10).toFixed(5)} m/s²</Text>
+            <Text>Z: {(sensorData.accelData.z * 10).toFixed(5)} m/s²</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -241,9 +148,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {magData.x.toFixed(5)} μT</Text>
-            <Text>Y: {magData.y.toFixed(5)} μT</Text>
-            <Text>Z: {magData.z.toFixed(5)} μT</Text>
+            <Text>X: {sensorData.magData.x.toFixed(5)} μT</Text>
+            <Text>Y: {sensorData.magData.y.toFixed(5)} μT</Text>
+            <Text>Z: {sensorData.magData.z.toFixed(5)} μT</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -259,11 +166,11 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            {location ? (
+            {sensorData.location ? (
               <>
-                <Text>Latitud: {location.latitude.toFixed(4)}</Text>
-                <Text>Longitud: {location.longitude.toFixed(4)}</Text>
-                <Text>Altitud: {location.altitude.toFixed(2)} m</Text>
+                <Text>Latitud: {sensorData.location.latitude.toFixed(4)}</Text>
+                <Text>Longitud: {sensorData.location.longitude.toFixed(4)}</Text>
+                <Text>Altitud: {sensorData.location.altitude.toFixed(2)} m</Text>
               </>
             ) : (
               <Text>Cargando...</Text>
@@ -283,9 +190,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {orientation.x.toFixed(4)} °</Text>
-            <Text>Y: {orientation.y.toFixed(4)} °</Text>
-            <Text>Z: {orientation.z.toFixed(4)} °</Text>
+            <Text>X: {sensorData.orientation.x.toFixed(4)} °</Text>
+            <Text>Y: {sensorData.orientation.y.toFixed(4)} °</Text>
+            <Text>Z: {sensorData.orientation.z.toFixed(4)} °</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -301,9 +208,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {gyroData.x.toFixed(5)} rad/s</Text>
-            <Text>Y: {gyroData.y.toFixed(5)} rad/s</Text>
-            <Text>Z: {gyroData.z.toFixed(5)} rad/s</Text>
+            <Text>X: {sensorData.gyroData.x.toFixed(5)} rad/s</Text>
+            <Text>Y: {sensorData.gyroData.y.toFixed(5)} rad/s</Text>
+            <Text>Z: {sensorData.gyroData.z.toFixed(5)} rad/s</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -319,9 +226,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {gravity.x.toFixed(5)}  m/s²</Text>
-            <Text>Y: {gravity.y.toFixed(5)} m/s²</Text>
-            <Text>Z: {gravity.z.toFixed(5)} m/s²</Text>
+            <Text>X: {sensorData.gravity.x.toFixed(5)} m/s²</Text>
+            <Text>Y: {sensorData.gravity.y.toFixed(5)} m/s²</Text>
+            <Text>Z: {sensorData.gravity.z.toFixed(5)} m/s²</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -337,9 +244,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {accelDataLineal.x.toFixed(5)} m/s²</Text>
-            <Text>Y: {accelDataLineal.y.toFixed(5)} m/s²</Text>
-            <Text>Z: {accelDataLineal.z.toFixed(5)} m/s²</Text>
+            <Text>X: {sensorData.accelDataLineal.x.toFixed(5)} m/s²</Text>
+            <Text>Y: {sensorData.accelDataLineal.y.toFixed(5)} m/s²</Text>
+            <Text>Z: {sensorData.accelDataLineal.z.toFixed(5)} m/s²</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -355,9 +262,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {vectorRotacionData.beta.toFixed(2)} °/s</Text>
-            <Text>Y: {vectorRotacionData.gamma.toFixed(2)} °/s</Text>
-            <Text>Z: {vectorRotacionData.alpha.toFixed(2)} °/s</Text>
+            <Text>X: {sensorData.vectorRotacionData.beta.toFixed(2)} °/s</Text>
+            <Text>Y: {sensorData.vectorRotacionData.gamma.toFixed(2)} °/s</Text>
+            <Text>Z: {sensorData.vectorRotacionData.alpha.toFixed(2)} °/s</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -373,9 +280,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>Nivel: {Math.floor(batteryLevel)}%</Text>
-            <Text>Estado: {batteryState} </Text>
-            <Text>Ahorro de energia: {String(lowPowerMode)} </Text>
+            <Text>Nivel: {Math.floor(sensorData.batteryLevel)}%</Text>
+            <Text>Estado: {sensorData.batteryState} </Text>
+            <Text>Ahorro de energia: {String(sensorData.lowPowerMode)} </Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -391,9 +298,9 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>Conexión: {conexion} </Text>
-            <Text>Tipo de conexión: {tipoConexion} </Text>
-            <Text>Dirección IP: {ipData} </Text>
+            <Text>Conexión: {sensorData.conexion} </Text>
+            <Text>Tipo de conexión: {sensorData.tipoConexion} </Text>
+            <Text>Dirección IP: {sensorData.ipData} </Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -409,7 +316,7 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>{Platform.OS === 'android' ? `${lightIntensity.toFixed(2)} lx` : `Only available on Android`}</Text>
+            <Text>{Platform.OS === 'android' ? `${sensorData.lightIntensity.toFixed(2)} lx` : `Only available on Android`}</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -422,7 +329,7 @@ export default function SensorsScreen() {
               <Title><FontAwesome5 name='clock' size={20} /> Fecha y hora</Title>
             </View>
           </View>
-          <Text>{dateTime.toLocaleDateString()} {dateTime.toLocaleTimeString()}</Text>
+          <Text>{sensorData.dateTime.toLocaleDateString()} {sensorData.dateTime.toLocaleTimeString()}</Text>
         </Card.Content>
       </Card>
 
