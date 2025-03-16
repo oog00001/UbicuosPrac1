@@ -1,26 +1,32 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Card, Title } from 'react-native-paper';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import { db, addDoc, collection } from './firebaseConfig'
+import { db, addDoc, collection } from './firebaseConfig';
 import { useNavigation } from '@react-navigation/native';
+import { TouchableOpacity } from 'react-native';
 import useSensors from '../../hooks/useSensors';
 
 export default function SensorsScreen() {
   const navigation = useNavigation();
   const sensorData = useSensors();
 
-  // Función para enviar datos a Firebase
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Sensores',
+    });
+  }, []);
+
   const sendSensorDataToFirebase = async () => {
-    if (!sensorData) {
-      console.log("No hay datos");
-      return;
-    }
+    if (!sensorData) return;
+
+    console.log("Acelerómetro:", sensorData.accelData);
+    console.log("Magnetómetro:", sensorData.magData);
+    console.log("Ubicación:", sensorData.location);
 
     try {
-      console.log("Enviando datos a Firebase...");
       const timestamp = new Date().toISOString();
-      
+
       await addDoc(collection(db, 'acelerometro'), {
         timestamp,
         x: sensorData.accelData?.x ?? 0,
@@ -51,13 +57,6 @@ export default function SensorsScreen() {
         z: sensorData.orientation?.z ?? 0,
       });
 
-      await addDoc(collection(db, 'giroscopio'), {
-        timestamp,
-        x: sensorData.gyroData?.x ?? 0,
-        y: sensorData.gyroData?.y ?? 0,
-        z: sensorData.gyroData?.z ?? 0,
-      });
-
       await addDoc(collection(db, 'gravedad'), {
         timestamp,
         x: sensorData.gravity?.x ?? 0,
@@ -65,14 +64,21 @@ export default function SensorsScreen() {
         z: sensorData.gravity?.z ?? 0,
       });
 
-      await addDoc(collection(db, 'aceleracionLineal'), {
+      await addDoc(collection(db, 'giroscopio'), {
+        timestamp,
+        x: sensorData.gyroData?.x ?? 0,
+        y: sensorData.gyroData?.y ?? 0,
+        z: sensorData.gyroData?.z ?? 0,
+      });
+
+      await addDoc(collection(db, 'vector_lineal'), {
         timestamp,
         x: sensorData.accelDataLineal?.x ?? 0,
         y: sensorData.accelDataLineal?.y ?? 0,
         z: sensorData.accelDataLineal?.z ?? 0,
       });
 
-      await addDoc(collection(db, 'vectorRotacion'), {
+      await addDoc(collection(db, 'vector_rotacion'), {
         timestamp,
         x: sensorData.vectorRotacionData?.beta ?? 0,
         y: sensorData.vectorRotacionData?.gamma ?? 0,
@@ -95,7 +101,7 @@ export default function SensorsScreen() {
 
       await addDoc(collection(db, 'luz'), {
         timestamp,
-        intensidad: sensorData.lightIntensity ?? 0,
+        intensidad: sensorData.lightIntensity ?? 'Desconocido',
       });
 
       console.log('Datos enviados a Firebase.');
@@ -106,12 +112,17 @@ export default function SensorsScreen() {
 
   // Enviar datos automáticamente cada 10 segundos
   useEffect(() => {
-    const interval = setInterval(() => {
-      sendSensorDataToFirebase();
-    }, 10000);
-
+    const sendData = async () => {
+      try {
+        await sendSensorDataToFirebase();
+      } catch (error) {
+        console.error('Error al enviar datos:', error);
+      }
+    };
+  
+    const interval = setInterval(sendData, 10000);
     return () => clearInterval(interval);
-  }, [sensorData]);
+  }, []);
 
   if (!sensorData) {
     return <Text>Cargando datos...</Text>;
@@ -119,6 +130,7 @@ export default function SensorsScreen() {
 
   return (
     <ScrollView style={styles.container}>
+
       {/* Acelerómetro */}
       <TouchableOpacity onPress={() => navigation.navigate('acelerometro')}>
         <Card style={styles.card}>
@@ -226,7 +238,7 @@ export default function SensorsScreen() {
               </View>
               <FontAwesome5 name='arrow-right' size={20} />
             </View>
-            <Text>X: {sensorData.gravity.x.toFixed(5)}  m/s²</Text>
+            <Text>X: {sensorData.gravity.x.toFixed(5)} m/s²</Text>
             <Text>Y: {sensorData.gravity.y.toFixed(5)} m/s²</Text>
             <Text>Z: {sensorData.gravity.z.toFixed(5)} m/s²</Text>
           </Card.Content>
@@ -340,8 +352,17 @@ export default function SensorsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#8795D0', padding: 10 },
   card: { marginVertical: 5, padding: 10, backgroundColor: 'white' },
-  titleContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
-  titleContent: { flexDirection: 'row', alignItems: 'center' },
-  titleText: { marginLeft: 8 },
+  titleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  titleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  titleText: {
+    marginLeft: 8,
+  },
 });
-
