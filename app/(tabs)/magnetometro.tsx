@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, FlatList, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from "firebase/firestore";
 
 interface MagnetometerData {
     x: number;
@@ -14,6 +16,10 @@ interface MagnetometerData {
 export default function Magnetometro() {
     const { magData } = useSensors();
     const navigation = useNavigation();
+
+    const [firebaseData, setFirebaseData] = useState<MagnetometerData[]>([]);
+    const [displayedData, setDisplayedData] = useState<MagnetometerData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
 
     const [magHistory, setMagHistory] = useState<MagnetometerData[]>(() =>
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
@@ -55,6 +61,44 @@ export default function Magnetometro() {
         inputRange: [-180, 180],
         outputRange: ['-180deg', '180deg'],
     });
+
+    //fireBase
+    // Cargar datos de Firebase
+    useEffect(() => {
+        const accelCollection = collection(db, "magnetometro");
+        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as MagnetometerData);
+            setFirebaseData(data);
+
+            // Solo actualizar displayedData si aún no se han cargado más datos
+            setDisplayedData((prevDisplayedData) =>
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Función para cargar más datos
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
+
+    const renderItem = useCallback(({ item }: { item: MagnetometerData }) => (
+        <View style={styles.row}>
+            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
+        </View>
+    ), []);
 
     return (
         <View style={styles.screen}>
@@ -109,6 +153,19 @@ export default function Magnetometro() {
                     <Text style={[styles.directionLabel, styles.south]}>S</Text>
                     <Text style={[styles.directionLabel, styles.west]}>O</Text>
                 </View>
+                <Text style={styles.historyText}>Histórico:</Text>
+                <FlatList
+                    data={displayedData}
+                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
+                    renderItem={renderItem}
+                    getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
+                    initialNumToRender={20}
+                    maxToRenderPerBatch={20}
+                    removeClippedSubviews
+                    ListFooterComponent={firebaseData.length > displayedData.length ? (
+                        <Button title="Cargar más" onPress={loadMoreData} />
+                    ) : null}
+                />
             </View>
         </View>
     );
@@ -188,5 +245,17 @@ const styles = StyleSheet.create({
         borderRadius: 75,
         resizeMode: 'cover',
         position: 'absolute',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });

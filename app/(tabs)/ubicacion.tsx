@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
@@ -35,28 +35,26 @@ export default function Ubicacion() {
                 />
             ),
         });
-        return () => {
-        };
     }, [navigation]);
 
-    // useEffect(() => {
-    //     const accelCollection = collection(db, "acelerometro");
-    //     const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+    useEffect(() => {
+        const accelCollection = collection(db, "acelerometro");
+        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
 
-    //     const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
-    //         const data = snapshot.docs.map(doc => doc.data() as LocationData);
-    //         setVisitedLocations(data);
-    //     });
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as LocationData);
+            setVisitedLocations(data);
+        });
 
-    //     return () => unsubscribe();
-    // }, []);
+        return () => unsubscribe();
+    }, []);
 
-    const initialRegion = {
+    const initialRegion = useMemo(() => ({
         latitude: location.latitude || 40.4168,
         longitude: location.longitude || -3.7038,
         latitudeDelta: 0.0922,
         longitudeDelta: 0.0421,
-    };
+    }), [location]);
 
     return (
         <View style={styles.screen}>
@@ -67,18 +65,33 @@ export default function Ubicacion() {
                 </View>
                 <Text style={styles.dataText}>Latitud: {isFinite(location.latitude) ? location.latitude.toFixed(4) : 'N/A'}</Text>
                 <Text style={styles.dataText}>Longitud: {isFinite(location.longitude) ? location.longitude.toFixed(4) : 'N/A'}</Text>
-                <Text style={styles.dataText}>Precisión: {isFinite(location.accuracy) ? location.accuracy : 'N/A'} m</Text>
+                <Text style={styles.dataText}>Precisión: {isFinite(location.accuracy) ? location.accuracy.toFixed(0) : 'N/A'} m</Text>
                 <Text style={styles.dataText}>Altitud: {isFinite(location.altitude) ? location.altitude.toFixed(2) : 'N/A'} m</Text>
                 <Text style={styles.dataText}>Rumbo: {isFinite(location.heading) ? location.heading.toFixed(2) : 'N/A'} ° norte</Text>
                 <Text style={styles.dataText}>Velocidad: {isFinite(location.speed) ? location.speed.toFixed(2) : 'N/A'} m/s</Text>
                 <Text style={styles.graphText}>Historial de ubicaciones:</Text>
                 <MapView style={styles.map} initialRegion={initialRegion}>
-                    {visitedLocations.map((loc, index) => (
+                    {isFinite(location.latitude) && isFinite(location.longitude) && (
                         <Marker
-                            key={index}
-                            coordinate={{ latitude: loc.latitude, longitude: loc.longitude }}
+                            coordinate={{
+                                latitude: location.latitude,
+                                longitude: location.longitude,
+                            }}
                         />
-                    ))}
+                    )}
+
+                    {visitedLocations.length > 0 &&
+                        visitedLocations.map((loc, index) => (
+                            isFinite(loc.latitude) && isFinite(loc.longitude) ? (
+                                <Marker
+                                    key={index}
+                                    coordinate={{
+                                        latitude: loc.latitude,
+                                        longitude: loc.longitude,
+                                    }}
+                                />
+                            ) : null
+                        ))}
                 </MapView>
             </View>
         </View>
