@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Accelerometer } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from "firebase/firestore";
 
 interface AccelerometerData {
     x: number;
@@ -20,6 +21,10 @@ export default function Acelerometro() {
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const navigation = useNavigation();
 
+    const [firebaseData, setFirebaseData] = useState<AccelerometerData[]>([]);
+    const [displayedData, setDisplayedData] = useState<AccelerometerData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
+
     useEffect(() => {
         navigation.setOptions({
             title: 'Acelerómetro',
@@ -34,13 +39,7 @@ export default function Acelerometro() {
             ),
         });
 
-        setAccelHistory(prevHistory => {
-            if (!isFinite(accelData.x) || !isFinite(accelData.y) || !isFinite(accelData.z)) return prevHistory;
-            const updatedHistory = [...prevHistory, accelData];
-            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-        });
-
-    }, [navigation, accelData]);
+    }, [navigation]);
 
     useEffect(() => {
         setAccelHistory((prevHistory) => {
@@ -51,6 +50,44 @@ export default function Acelerometro() {
             return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
     }, [accelData]);
+
+    //fireBase
+    // Cargar datos de Firebase
+    useEffect(() => {
+        const accelCollection = collection(db, "acelerometro");
+        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+    
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as AccelerometerData);
+            setFirebaseData(data);
+    
+            // Solo actualizar displayedData si aún no se han cargado más datos
+            setDisplayedData((prevDisplayedData) => 
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
+    
+        return () => unsubscribe();
+    }, []);
+
+    // Función para cargar más datos
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
+
+    const renderItem = useCallback(({ item }: { item: AccelerometerData }) => (
+        <View style={styles.row}>
+            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
+        </View>
+    ), []);
 
     return (
         <View style={styles.screen}>
@@ -98,6 +135,18 @@ export default function Acelerometro() {
                     />
                 )}
                 <Text style={styles.historyText}>Histórico:</Text>
+                <FlatList
+                    data={displayedData}
+                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
+                    renderItem={renderItem}
+                    getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
+                    initialNumToRender={20}
+                    maxToRenderPerBatch={20}
+                    removeClippedSubviews
+                    ListFooterComponent={firebaseData.length > displayedData.length ? (
+                        <Button title="Cargar más" onPress={loadMoreData} />
+                    ) : null}
+                />
             </View>
         </View>
     );
@@ -140,5 +189,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 15,
         fontWeight: 'bold',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });

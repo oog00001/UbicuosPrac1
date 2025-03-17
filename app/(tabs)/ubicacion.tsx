@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from "firebase/firestore";
 
 interface LocationData {
     city: string;
@@ -36,6 +38,18 @@ export default function Ubicacion() {
         return () => {
         };
     }, [navigation]);
+
+    // useEffect(() => {
+    //     const accelCollection = collection(db, "acelerometro");
+    //     const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+
+    //     const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+    //         const data = snapshot.docs.map(doc => doc.data() as LocationData);
+    //         setVisitedLocations(data);
+    //     });
+
+    //     return () => unsubscribe();
+    // }, []);
 
     const initialRegion = {
         latitude: location.latitude || 40.4168,
