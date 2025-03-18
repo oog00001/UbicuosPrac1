@@ -11,7 +11,7 @@ interface BatteryData {
     level: number;
 }
 
-interface DatosFirebase{
+interface DatosFirebase {
     level: number;
     timestamp: number;
 }
@@ -59,23 +59,22 @@ export default function BatteryFuncion() {
         const todayTimestamp = today.getTime();
 
         const accelCollection = collection(db, "bateria");
-        const accelQuery = query(accelCollection, where("timestamp", ">=", todayTimestamp) ,orderBy("timestamp", "asc"));
+        const accelQuery = query(accelCollection, where("timestamp", ">=", todayTimestamp), orderBy("timestamp", "asc"));
 
         const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => doc.data() as DatosFirebase);
-            
+
             //manejo horas -- firebase no tiene group by, unicamente permite un corto manejo de horas, o mil peticiones o 1 y manejo
             const hourlyData: DatosFirebase[] = [];
-            const seenHours = new Set();
+            const seenHours = new Map<number, DatosFirebase>();
             for (const entry of data) {
-                const entryDate = new Date(entry.timestamp);
-                const entryHour = entryDate.getHours();
+                const entryHour = new Date(entry.timestamp).getHours();
                 if (!seenHours.has(entryHour)) {
-                    seenHours.add(entryHour);
-                    hourlyData.push(entry);
+                    seenHours.set(entryHour, entry);
                 }
             }
-            setFirebaseData(hourlyData);
+            // Ahora `hourlyData` contiene solo los datos más recientes de cada hora
+            setFirebaseData(Array.from(seenHours.values()));
 
             // Solo actualizar displayedData si aún no se han cargado más datos
             setDisplayedData((prevDisplayedData) =>
