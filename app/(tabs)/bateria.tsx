@@ -65,7 +65,7 @@ export default function BatteryFuncion() {
             const data = snapshot.docs.map(doc => doc.data() as DatosFirebase);
 
             //manejo horas -- firebase no tiene group by, unicamente permite un corto manejo de horas, o mil peticiones o 1 y manejo
-            const hourlyData: DatosFirebase[] = [];
+            /*const hourlyData: DatosFirebase[] = [];
             const seenHours = new Map<number, DatosFirebase>();
             for (const entry of data) {
                 const entryHour = new Date(entry.timestamp).getHours();
@@ -74,7 +74,8 @@ export default function BatteryFuncion() {
                 }
             }
             // Ahora `hourlyData` contiene solo los datos más recientes de cada hora
-            setFirebaseData(Array.from(seenHours.values()));
+            setFirebaseData(Array.from(seenHours.values()));*/
+            setFirebaseData(data);
 
             // Solo actualizar displayedData si aún no se han cargado más datos
             setDisplayedData((prevDisplayedData) =>
