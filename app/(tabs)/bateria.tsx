@@ -24,8 +24,8 @@ export default function BatteryFuncion() {
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const navigation = useNavigation();
 
-    const [firebaseData, setFirebaseData] = useState<BatteryData[]>([]);
-    const [displayedData, setDisplayedData] = useState<BatteryData[]>([]);
+    const [firebaseData, setFirebaseData] = useState<DatosFirebase[]>([]);
+    const [displayedData, setDisplayedData] = useState<DatosFirebase[]>([]);
     const [currentIndex, setCurrentIndex] = useState(20);
 
     useEffect(() => {
@@ -65,20 +65,16 @@ export default function BatteryFuncion() {
             const data = snapshot.docs.map(doc => doc.data() as DatosFirebase);
             
             //manejo horas -- firebase no tiene group by, unicamente permite un corto manejo de horas, o mil peticiones o 1 y manejo
-            const hourlyData: BatteryData[] = [];
+            const hourlyData: DatosFirebase[] = [];
             const seenHours = new Set();
             for (const entry of data) {
                 const entryDate = new Date(entry.timestamp);
                 const entryHour = entryDate.getHours();
-    
                 if (!seenHours.has(entryHour)) {
                     seenHours.add(entryHour);
-                    let a: BatteryData = ({level: 0});
-                    a.level = entry.level;
-                    hourlyData.push(a);
+                    hourlyData.push(entry);
                 }
             }
-
             setFirebaseData(hourlyData);
 
             // Solo actualizar displayedData si aún no se han cargado más datos
@@ -101,7 +97,7 @@ export default function BatteryFuncion() {
         }
     };
 
-    const renderItem = useCallback(({ item }: { item: BatteryData }) => (
+    const renderItem = useCallback(({ item }: { item: DatosFirebase }) => (
         <View style={styles.row}>
             <Text style={styles.cell}>Nivel: {item.level.toFixed(3)}</Text>
         </View>
@@ -153,7 +149,7 @@ export default function BatteryFuncion() {
                 <Text style={styles.historyText}>Histórico:</Text>
                 <FlatList
                     data={displayedData}
-                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
+                    keyExtractor={(item) => String(item.timestamp)}
                     renderItem={renderItem}
                     getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
                     initialNumToRender={20}
