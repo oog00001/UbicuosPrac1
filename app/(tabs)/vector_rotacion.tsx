@@ -79,9 +79,9 @@ export default function VectorRotacion() {
 
     const renderItem = useCallback(({ item }: { item: vectorRotacionData }) => (
         <View style={styles.row}>
-            <Text style={styles.cell}>X: {item.alpha.toFixed(3)}</Text>
-            <Text style={styles.cell}>Y: {item.beta.toFixed(3)}</Text>
-            <Text style={styles.cell}>Z: {item.gamma.toFixed(3)}</Text>
+            <Text style={styles.cell}>X: {item.x?.toFixed(3) ?? 0}</Text>
+            <Text style={styles.cell}>Y: {item.y?.toFixed(3) ?? 0}</Text>
+            <Text style={styles.cell}>Z: {item.z?.toFixed(3) ?? 0}</Text>
         </View>
     ), []);
 
