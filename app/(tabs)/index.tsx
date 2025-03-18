@@ -14,12 +14,18 @@ export default function SensorsScreen() {
   const [lastSentTime, setLastSentTime] = useState(Date.now()); // Para almacenar el último momento en que enviamos los datos
 
   useEffect(() => {
+    navigation.setOptions({
+      title: 'Sensores',
+    });
+  }, [navigation]);
+
+  useEffect(() => {    
     const currentTime = Date.now();
 
     // Verifica si los datos han cambiado y han pasado al menos 10 segundos
     if (
       sensorData !== prevSensorDataRef.current &&
-      currentTime - lastSentTime >= 10000
+      currentTime - lastSentTime >= 2000
     ) {
       prevSensorDataRef.current = sensorData; // Actualiza el valor anterior
       setLastSentTime(currentTime); // Actualiza el último momento de envío

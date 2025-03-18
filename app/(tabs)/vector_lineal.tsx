@@ -1,28 +1,33 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from "firebase/firestore";
 
-interface accelLinealData {
+interface AccelLinealData {
     x: number;
     y: number;
     z: number;
 }
 
 export default function AceleracionLineal() {
-    const [accelDataLineal, setAccelDataLineal] = useState({ x: 0, y: 0, z: 0 });
-    const [accelLinealHistory, setAccelLinealHistory] = useState<accelLinealData[]>(
+    const { accelDataLineal } = useSensors();
+    const [accelLinealHistory, setAccelLinealHistory] = useState<AccelLinealData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const accelLinealSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
+
+    const [firebaseData, setFirebaseData] = useState<AccelLinealData[]>([]);
+    const [displayedData, setDisplayedData] = useState<AccelLinealData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Aceleracion lineal",
+            title: "Aceleración lineal",
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -34,33 +39,51 @@ export default function AceleracionLineal() {
             ),
         });
 
+        setAccelLinealHistory(prevHistory => {
+            if (!isFinite(accelDataLineal.x) || !isFinite(accelDataLineal.y) || !isFinite(accelDataLineal.z)) return prevHistory;
+            const updatedHistory = [...prevHistory, accelDataLineal];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
-        const asincronia = async () => {
-            const isAvailable = await DeviceMotion.isAvailableAsync();
-            if (isAvailable) {
-                DeviceMotion.setUpdateInterval(500);
-                accelLinealSubscriptionRef.current = DeviceMotion.addListener((data) => {
-                    if (data.acceleration) {
-                        setAccelDataLineal(data.acceleration);
-                        let xP = data.acceleration.x;
-                        let yP = data.acceleration.y;
-                        let zP = data.acceleration.z;
-                        setAccelLinealHistory(prevHistory => {
-                            if (!isFinite(xP) || !isFinite(yP) || !isFinite(zP)) return prevHistory;
-                            const updatedHistory = [...prevHistory, accelDataLineal];
-                            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                        });
-                    }
-                });
-            }
-        };
+    }, [navigation, accelDataLineal]);
 
-        asincronia();
+    //fireBase
+    // Cargar datos de Firebase
+    useEffect(() => {
+        const accelCollection = collection(db, "vector_lineal");
+        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
 
-        return () => {
-            if (accelLinealSubscriptionRef.current) accelLinealSubscriptionRef.current.remove();
-        };
-    }, [navigation]);
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as AccelLinealData);
+            setFirebaseData(data);
+
+            // Solo actualizar displayedData si aún no se han cargado más datos
+            setDisplayedData((prevDisplayedData) =>
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Función para cargar más datos
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
+
+    const renderItem = useCallback(({ item }: { item: AccelLinealData }) => (
+        <View style={styles.row}>
+            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
+        </View>
+    ), []);
 
     return (
         <View style={styles.screen}>
@@ -73,9 +96,9 @@ export default function AceleracionLineal() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='arrow-right' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Aceleracion lineal</Text>
+                    <Text style={styles.title}>Aceleración lineal</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(accelDataLineal.x ).toFixed(5)} m/s²</Text>
+                <Text style={styles.dataText}>X: {(accelDataLineal.x).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Y: {(accelDataLineal.y).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Z: {(accelDataLineal.z).toFixed(5)} m/s²</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
@@ -95,19 +118,31 @@ export default function AceleracionLineal() {
                         chartConfig={{
                             backgroundGradientFrom: '#ffffff',
                             backgroundGradientTo: '#ffffff',
-                            decimalPlaces: 5,
+                            decimalPlaces: 2,
                             color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             style: { borderRadius: 16 },
                             propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
                             propsForLabels: {
-                                fontSize: 8,
+                                fontSize: 10,
                             }
                         }}
                         bezier
                     />
                 )}
                 <Text style={styles.historyText}>Histórico:</Text>
+                <FlatList
+                    data={displayedData}
+                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
+                    renderItem={renderItem}
+                    getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
+                    initialNumToRender={20}
+                    maxToRenderPerBatch={20}
+                    removeClippedSubviews
+                    ListFooterComponent={firebaseData.length > displayedData.length ? (
+                        <Button title="Cargar más" onPress={loadMoreData} />
+                    ) : null}
+                />
             </View>
         </View>
     );
@@ -150,5 +185,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 15,
         fontWeight: 'bold',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });

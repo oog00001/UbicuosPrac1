@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Image  } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, FlatList, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Magnetometer } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from "firebase/firestore";
 
 interface MagnetometerData {
     x: number;
@@ -12,18 +14,22 @@ interface MagnetometerData {
 }
 
 export default function Magnetometro() {
-    const [magData, setMagData] = useState({ x: 0, y: 0, z: 0 });
-    const [magHistory, setmagHistory] = useState<MagnetometerData[]>(
+    const { magData } = useSensors();
+    const navigation = useNavigation();
+
+    const [firebaseData, setFirebaseData] = useState<MagnetometerData[]>([]);
+    const [displayedData, setDisplayedData] = useState<MagnetometerData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
+
+    const [magHistory, setMagHistory] = useState<MagnetometerData[]>(() =>
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
-    const [containerWidth, setContainerWidth] = useState<number>(0);
-    const magSubscriptionRef = useRef<any>(null);
-    const navigation = useNavigation();
+    const [containerWidth, setContainerWidth] = useState<number>(Dimensions.get('window').width);
     const rotateAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Magnetometro",
+            title: 'Campo Geomagnético',
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -35,32 +41,64 @@ export default function Magnetometro() {
             ),
         });
 
-        Magnetometer.setUpdateInterval(500);
-        magSubscriptionRef.current = Magnetometer.addListener((data: MagnetometerData) => {
-            setMagData(data);
-            setmagHistory(prevHistory => {
-                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
-                const updatedHistory = [...prevHistory, data];
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-            });
-
-            const angle = Math.atan2(data.y, data.x) * (180 / Math.PI);
-            Animated.timing(rotateAnim, {
-                toValue: angle,
-                duration: 300,
-                useNativeDriver: true,
-            }).start();
+        setMagHistory((prevHistory) => {
+            if (!isFinite(magData.x) || !isFinite(magData.y) || !isFinite(magData.z)) {
+                return prevHistory;
+            }
+            const updatedHistory = [...prevHistory, magData];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
         });
 
-        return () => {
-            if (magSubscriptionRef.current) magSubscriptionRef.current.remove();
-        };
-    }, [navigation]);
+        const angle = Math.atan2(magData.y, magData.x) * (180 / Math.PI);
+        Animated.timing(rotateAnim, {
+            toValue: angle,
+            duration: 300,
+            useNativeDriver: true,
+        }).start();
+    }, [navigation, magData]);
 
     const rotateInterpolate = rotateAnim.interpolate({
         inputRange: [-180, 180],
         outputRange: ['-180deg', '180deg'],
     });
+
+    //fireBase
+    // Cargar datos de Firebase
+    useEffect(() => {
+        const accelCollection = collection(db, "magnetometro");
+        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as MagnetometerData);
+            setFirebaseData(data);
+
+            // Solo actualizar displayedData si aún no se han cargado más datos
+            setDisplayedData((prevDisplayedData) =>
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Función para cargar más datos
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
+
+    const renderItem = useCallback(({ item }: { item: MagnetometerData }) => (
+        <View style={styles.row}>
+            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
+        </View>
+    ), []);
 
     return (
         <View style={styles.screen}>
@@ -73,11 +111,11 @@ export default function Magnetometro() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='magnet' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Magnetometro</Text>
+                    <Text style={styles.title}>Campo Geomagnético</Text>
                 </View>
-                <Text style={styles.dataText}>X: {(magData.x).toFixed(5)} μT</Text>
-                <Text style={styles.dataText}>Y: {(magData.y).toFixed(5)} μT</Text>
-                <Text style={styles.dataText}>Z: {(magData.z).toFixed(5)} μT</Text>
+                <Text style={styles.dataText}>X: {magData.x.toFixed(5)} μT</Text>
+                <Text style={styles.dataText}>Y: {magData.y.toFixed(5)} μT</Text>
+                <Text style={styles.dataText}>Z: {magData.z.toFixed(5)} μT</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
@@ -100,9 +138,7 @@ export default function Magnetometro() {
                             labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             style: { borderRadius: 16 },
                             propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
-                            propsForLabels: {
-                                fontSize: 10,
-                            }
+                            propsForLabels: { fontSize: 10 },
                         }}
                         bezier
                     />
@@ -117,6 +153,19 @@ export default function Magnetometro() {
                     <Text style={[styles.directionLabel, styles.south]}>S</Text>
                     <Text style={[styles.directionLabel, styles.west]}>O</Text>
                 </View>
+                <Text style={styles.historyText}>Histórico:</Text>
+                <FlatList
+                    data={displayedData}
+                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
+                    renderItem={renderItem}
+                    getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
+                    initialNumToRender={20}
+                    maxToRenderPerBatch={20}
+                    removeClippedSubviews
+                    ListFooterComponent={firebaseData.length > displayedData.length ? (
+                        <Button title="Cargar más" onPress={loadMoreData} />
+                    ) : null}
+                />
             </View>
         </View>
     );
@@ -155,11 +204,6 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         fontWeight: 'bold',
     },
-    historyText: {
-        fontSize: 18,
-        marginBottom: 15,
-        fontWeight: 'bold',
-    },
     directionLabel: {
         position: 'absolute',
         fontSize: 18,
@@ -188,12 +232,30 @@ const styles = StyleSheet.create({
     compassContainer: {
         width: 200,
         height: 200,
+        borderRadius: 100,
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
+        backgroundColor: '#f0f0f0',
+        alignSelf: 'center',
     },
     compass: {
         width: 150,
         height: 150,
+        borderRadius: 75,
+        resizeMode: 'cover',
+        position: 'absolute',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });

@@ -1,21 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from "firebase/firestore";
+
+interface LocationData {
+    city: string;
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    altitude: number;
+    heading: number;
+    speed: number;
+}
 
 export default function Ubicacion() {
-    const [location, setLocation] = useState({
-        city: '',
-        latitude: 0,
-        longitude: 0,
-        accuracy: 0,
-        altitude: 0,
-        heading: 0,
-        speed: 0,
-    });
-    const [visitedLocations, setVisitedLocations] = useState([]);
+    const { location } = useSensors();
+    const [visitedLocations, setVisitedLocations] = useState<LocationData[]>([]);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -31,47 +35,26 @@ export default function Ubicacion() {
                 />
             ),
         });
-
-        const fetchLocation = async () => {
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status === 'granted') {
-                const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-                let cityName = '';
-
-                const reverseGeocode = await Location.reverseGeocodeAsync({
-                    latitude: loc.coords.latitude,
-                    longitude: loc.coords.longitude,
-                });
-
-                if (reverseGeocode.length > 0) {
-                    cityName = reverseGeocode[0].city || '';
-                }
-
-                const newLocation = {
-                    city: cityName,
-                    latitude: loc.coords.latitude,
-                    longitude: loc.coords.longitude,
-                    accuracy: loc.coords.accuracy ?? 0,
-                    altitude: loc.coords.altitude ?? 0,
-                    heading: loc.coords.heading ?? 0,
-                    speed: loc.coords.speed ?? 0,
-                };
-
-                setLocation(newLocation);
-
-                setVisitedLocations(prev => [...prev, newLocation]);
-            }
-        };
-
-        fetchLocation();
     }, [navigation]);
 
-    const initialRegion = {
-        latitude: location.latitude !== 0 ? location.latitude : 40.4168,
-        longitude: location.longitude !== 0 ? location.longitude : -3.7038,
+    useEffect(() => {
+        const accelCollection = collection(db, "acelerometro");
+        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as LocationData);
+            setVisitedLocations(data);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const initialRegion = useMemo(() => ({
+        latitude: location.latitude || 40.4168,
+        longitude: location.longitude || -3.7038,
         latitudeDelta: 0.0922,
         longitudeDelta: 0.0421,
-    };
+    }), [location]);
 
     return (
         <View style={styles.screen}>
@@ -80,20 +63,35 @@ export default function Ubicacion() {
                     <Ionicons name="location" size={20} style={styles.icon} />
                     <Text style={styles.title}>{location.city}</Text>
                 </View>
-                <Text style={styles.dataText}>Latitud: {location.latitude.toFixed(4)}</Text>
-                <Text style={styles.dataText}>Longitud: {location.longitude.toFixed(4)}</Text>
-                <Text style={styles.dataText}>Precisión: {location.accuracy.toFixed(2)} m</Text>
-                <Text style={styles.dataText}>Altitud: {location.altitude.toFixed(2)} m</Text>
-                <Text style={styles.dataText}>Rumbo: {location.heading.toFixed(2)} ° norte</Text>
-                <Text style={styles.dataText}>Velocidad: {location.speed.toFixed(2)} m/s</Text>
+                <Text style={styles.dataText}>Latitud: {isFinite(location.latitude) ? location.latitude.toFixed(4) : 'N/A'}</Text>
+                <Text style={styles.dataText}>Longitud: {isFinite(location.longitude) ? location.longitude.toFixed(4) : 'N/A'}</Text>
+                <Text style={styles.dataText}>Precisión: {isFinite(location.accuracy) ? location.accuracy.toFixed(0) : 'N/A'} m</Text>
+                <Text style={styles.dataText}>Altitud: {isFinite(location.altitude) ? location.altitude.toFixed(2) : 'N/A'} m</Text>
+                <Text style={styles.dataText}>Rumbo: {isFinite(location.heading) ? location.heading.toFixed(2) : 'N/A'} ° norte</Text>
+                <Text style={styles.dataText}>Velocidad: {isFinite(location.speed) ? location.speed.toFixed(2) : 'N/A'} m/s</Text>
                 <Text style={styles.graphText}>Historial de ubicaciones:</Text>
                 <MapView style={styles.map} initialRegion={initialRegion}>
-                    {visitedLocations.map((loc, index) => (
+                    {isFinite(location.latitude) && isFinite(location.longitude) && (
                         <Marker
-                            key={index}
-                            coordinate={{ latitude: loc.latitude, longitude: loc.longitude }}
+                            coordinate={{
+                                latitude: location.latitude,
+                                longitude: location.longitude,
+                            }}
                         />
-                    ))}
+                    )}
+
+                    {visitedLocations.length > 0 &&
+                        visitedLocations.map((loc, index) => (
+                            isFinite(loc.latitude) && isFinite(loc.longitude) ? (
+                                <Marker
+                                    key={index}
+                                    coordinate={{
+                                        latitude: loc.latitude,
+                                        longitude: loc.longitude,
+                                    }}
+                                />
+                            ) : null
+                        ))}
                 </MapView>
             </View>
         </View>

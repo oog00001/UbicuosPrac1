@@ -1,31 +1,36 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Battery from 'expo-battery';
+import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy, where } from "firebase/firestore";
 
 interface BatteryData {
     level: number;
 }
 
+interface DatosFirebase{
+    level: number;
+    timestamp: number;
+}
+
 export default function BatteryFuncion() {
-
-    const [batteryLevel, setBatteryLevel] = useState(0);
-    const [batteryState, setBatteryState] = useState('');
-    const [lowPowerMode, setLowPowerMode] = useState('');
-
+    const { batteryLevel, batteryState, lowPowerMode } = useSensors();
     const [batteryHistory, setBatteryHistory] = useState<BatteryData[]>(
-        Array.from({ length: 20 }, () => ({ level: 0}))
+        Array.from({ length: 20 }, () => ({ level: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const BatterySubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
+
+    const [firebaseData, setFirebaseData] = useState<BatteryData[]>([]);
+    const [displayedData, setDisplayedData] = useState<BatteryData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Bateria",
+            title: "Batería",
             headerLeft: () => (
                 <FontAwesome5
                     name="arrow-left"
@@ -37,54 +42,70 @@ export default function BatteryFuncion() {
             ),
         });
 
+        setBatteryHistory(prevHistory => {
+            if (!isFinite(batteryLevel)) return prevHistory;
+            const updatedHistory = [...prevHistory, { level: batteryLevel }];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
-        const asincronia = async () => {
-            const batteryLevelValue = await Battery.getBatteryLevelAsync();
-            setBatteryLevel(batteryLevelValue * 100);
+    }, [navigation, batteryLevel]);
+
+    //fireBase
+    // Cargar datos de Firebase
+    useEffect(() => {
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTimestamp = today.getTime();
+
+        const accelCollection = collection(db, "bateria");
+        const accelQuery = query(accelCollection, where("timestamp", ">=", todayTimestamp) ,orderBy("timestamp", "asc"));
+
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as DatosFirebase);
             
-            const batteryStateValue = await Battery.getBatteryStateAsync();
-                  let batteryStateText = '';
-                  switch (batteryStateValue) {
-                    case Battery.BatteryState.CHARGING:
-                      batteryStateText = 'cargando';
-                      break;
-                    case Battery.BatteryState.FULL:
-                      batteryStateText = 'batería llena';
-                      break;
-                    case Battery.BatteryState.UNPLUGGED:
-                      batteryStateText = 'descarga';
-                      break;
-                    default:
-                      batteryStateText = 'desconocido';
-                  }
-                  setBatteryState(batteryStateText);
-            
-            const lowPowerModeValue = await Battery.isLowPowerModeEnabledAsync();
-            
-                let lowPowerModeText = '';
-                if (!lowPowerModeValue) {
-                    lowPowerModeText = 'desactivado';
-                } else {
-                    lowPowerModeText = 'activado';
+            //manejo horas -- firebase no tiene group by, unicamente permite un corto manejo de horas, o mil peticiones o 1 y manejo
+            const hourlyData: BatteryData[] = [];
+            const seenHours = new Set();
+            for (const entry of data) {
+                const entryDate = new Date(entry.timestamp);
+                const entryHour = entryDate.getHours();
+    
+                if (!seenHours.has(entryHour)) {
+                    seenHours.add(entryHour);
+                    let a: BatteryData = ({level: 0});
+                    a.level = entry.level;
+                    hourlyData.push(a);
                 }
-                setLowPowerMode(lowPowerModeText);
+            }
 
-                let valor = { level: 0 };
-                valor.level = batteryLevelValue * 100;
+            setFirebaseData(hourlyData);
 
-                setBatteryHistory(prevHistory => {
-                    if (!isFinite(batteryLevelValue * 100)) return prevHistory;
-                    const updatedHistory = [...prevHistory, valor];
-                    return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                });
-        };
+            // Solo actualizar displayedData si aún no se han cargado más datos
+            setDisplayedData((prevDisplayedData) =>
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
 
-        asincronia();
+        return () => unsubscribe();
+    }, []);
 
-        return () => {
-            if (BatterySubscriptionRef.current) BatterySubscriptionRef.current.remove();
-        };
-    }, [navigation]);
+    // Función para cargar más datos
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
+
+    const renderItem = useCallback(({ item }: { item: BatteryData }) => (
+        <View style={styles.row}>
+            <Text style={styles.cell}>Nivel: {item.level.toFixed(3)}</Text>
+        </View>
+    ), []);
 
     return (
         <View style={styles.screen}>
@@ -97,11 +118,11 @@ export default function BatteryFuncion() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='battery-half' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Bateria</Text>
+                    <Text style={styles.title}>Batería</Text>
                 </View>
                 <Text style={styles.dataText}>Nivel: {Math.floor(batteryLevel)}%</Text>
                 <Text style={styles.dataText}>Estado: {batteryState}</Text>
-                <Text style={styles.dataText}>Ahorro de energia: {String(lowPowerMode)}</Text>
+                <Text style={styles.dataText}>Ahorro de energía: {String(lowPowerMode)}</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
@@ -130,6 +151,18 @@ export default function BatteryFuncion() {
                     />
                 )}
                 <Text style={styles.historyText}>Histórico:</Text>
+                <FlatList
+                    data={displayedData}
+                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
+                    renderItem={renderItem}
+                    getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
+                    initialNumToRender={20}
+                    maxToRenderPerBatch={20}
+                    removeClippedSubviews
+                    ListFooterComponent={firebaseData.length > displayedData.length ? (
+                        <Button title="Cargar más" onPress={loadMoreData} />
+                    ) : null}
+                />
             </View>
         </View>
     );
@@ -172,5 +205,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 15,
         fontWeight: 'bold',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });
