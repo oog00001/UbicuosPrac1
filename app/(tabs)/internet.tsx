@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Button } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
-import { onSnapshot, query, orderBy } from "firebase/firestore";
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface InternateData {
     ipData: string;
@@ -24,12 +24,12 @@ export default function Internet() {
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Internet",
+            title: 'Internet',
             headerLeft: () => (
                 <FontAwesome5
-                    name="arrow-left"
+                    name='arrow-left'
                     size={20}
-                    color="white"
+                    color='white'
                     style={{ marginLeft: 20, marginRight: 30 }}
                     onPress={() => navigation.goBack()}
                 />
@@ -37,17 +37,14 @@ export default function Internet() {
         });
     }, [navigation]);
 
-    //fireBase
-    // Cargar datos de Firebase
     useEffect(() => {
-        const accelCollection = collection(db, "internet");
-        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+        const accelCollection = collection(db, 'internet');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
 
         const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => doc.data() as InternateData);
             setFirebaseData(data);
 
-            // Solo actualizar displayedData si aún no se han cargado más datos
             setDisplayedData((prevDisplayedData) =>
                 prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
             );
@@ -56,7 +53,6 @@ export default function Internet() {
         return () => unsubscribe();
     }, []);
 
-    // Función para cargar más datos
     const loadMoreData = () => {
         const nextIndex = currentIndex + 20;
         const newData = firebaseData.slice(0, nextIndex);
@@ -67,18 +63,8 @@ export default function Internet() {
         }
     };
 
-    const renderItem = useCallback(({ item }: { item: InternateData }) => (
-        <View style={styles.row}>
-            <Text style={styles.cell}>Conexión: {item.conexion} </Text>
-            <Text style={styles.cell}>Tipo de conexión: {item.tipoConexion}</Text>
-            <Text style={styles.cell}>Dirección IP: {item.ipData} </Text>
-            <Text style={styles.cell}>Es accesible Internet: {item.accesible} </Text>
-            <Text style={styles.cell}>Modo avión activo: {item.avion} </Text>
-        </View>
-    ), []);
-
     return (
-        <View style={styles.screen}>
+        <ScrollView style={styles.screen} keyboardShouldPersistTaps='handled' contentContainerStyle={{ paddingBottom: 30 }}>
             <View style={styles.container}>
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='wifi' size={20} style={styles.icon} />
@@ -90,20 +76,25 @@ export default function Internet() {
                 <Text style={styles.dataText}>Es accesible Internet: {accesible} </Text>
                 <Text style={styles.dataText}>Modo avión activo: {avion} </Text>
                 <Text style={styles.historyText}>Histórico:</Text>
-                <FlatList
-                    data={displayedData}
-                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
-                    renderItem={renderItem}
-                    getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
-                    initialNumToRender={20}
-                    maxToRenderPerBatch={20}
-                    removeClippedSubviews
-                    ListFooterComponent={firebaseData.length > displayedData.length ? (
-                        <Button title="Cargar más" onPress={loadMoreData} />
-                    ) : null}
-                />
+                <View>
+                    {displayedData.map((item, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.cell}>Conexión: {item.conexion} </Text>
+                            <Text style={styles.cell}>Tipo de conexión: {item.tipoConexion}</Text>
+                            <Text style={styles.cell}>Dirección IP: {item.ipData} </Text>
+                            <Text style={styles.cell}>Es accesible Internet: {item.accesible} </Text>
+                            <Text style={styles.cell}>Modo avión activo: {item.avion} </Text>
+                        </View>
+                    ))}
+
+                    {firebaseData.length > displayedData.length && (
+                        <View style={{ marginTop: 10, marginBottom: 20 }}>
+                            <Button title='Cargar más' onPress={loadMoreData} />
+                        </View>
+                    )}
+                </View>
             </View>
-        </View>
+        </ScrollView>
     );
 }
 

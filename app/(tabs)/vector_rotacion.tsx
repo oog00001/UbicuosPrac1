@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Button } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
-import { onSnapshot, query, orderBy } from "firebase/firestore";
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface vectorRotacionData {
     alpha: number;
@@ -27,12 +27,12 @@ export default function VectorRotacion() {
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Tasa de rotación",
+            title: 'Tasa de rotación',
             headerLeft: () => (
                 <FontAwesome5
-                    name="arrow-left"
+                    name='arrow-left'
                     size={20}
-                    color="white"
+                    color='white'
                     style={{ marginLeft: 20, marginRight: 30 }}
                     onPress={() => navigation.goBack()}
                 />
@@ -47,17 +47,14 @@ export default function VectorRotacion() {
 
     }, [navigation, vectorRotacionData]);
 
-    //fireBase
-    // Cargar datos de Firebase
     useEffect(() => {
-        const accelCollection = collection(db, "vector_rotacion");
-        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+        const accelCollection = collection(db, 'vector_rotacion');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
 
         const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => doc.data() as vectorRotacionData);
             setFirebaseData(data);
 
-            // Solo actualizar displayedData si aún no se han cargado más datos
             setDisplayedData((prevDisplayedData) =>
                 prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
             );
@@ -66,7 +63,6 @@ export default function VectorRotacion() {
         return () => unsubscribe();
     }, []);
 
-    // Función para cargar más datos
     const loadMoreData = () => {
         const nextIndex = currentIndex + 20;
         const newData = firebaseData.slice(0, nextIndex);
@@ -77,16 +73,8 @@ export default function VectorRotacion() {
         }
     };
 
-    const renderItem = useCallback(({ item }: { item: vectorRotacionData }) => (
-        <View style={styles.row}>
-            <Text style={styles.cell}>X: {item.alpha.toFixed(3)}</Text>
-            <Text style={styles.cell}>Y: {item.beta.toFixed(3)}</Text>
-            <Text style={styles.cell}>Z: {item.gamma.toFixed(3)}</Text>
-        </View>
-    ), []);
-
     return (
-        <View style={styles.screen}>
+        <ScrollView style={styles.screen} keyboardShouldPersistTaps='handled' contentContainerStyle={{ paddingBottom: 30 }}>
             <View
                 style={styles.container}
                 onLayout={(event) => {
@@ -131,20 +119,23 @@ export default function VectorRotacion() {
                     />
                 )}
                 <Text style={styles.historyText}>Histórico:</Text>
-                <FlatList
-                    data={displayedData}
-                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
-                    renderItem={renderItem}
-                    getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
-                    initialNumToRender={20}
-                    maxToRenderPerBatch={20}
-                    removeClippedSubviews
-                    ListFooterComponent={firebaseData.length > displayedData.length ? (
-                        <Button title="Cargar más" onPress={loadMoreData} />
-                    ) : null}
-                />
+                <View>
+                    {displayedData.map((item, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.cell}>X: {item.z.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Y: {item.x.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Z: {item.y.toFixed(3)}</Text>
+                        </View>
+                    ))}
+
+                    {firebaseData.length > displayedData.length && (
+                        <View style={{ marginTop: 10, marginBottom: 20 }}>
+                            <Button title='Cargar más' onPress={loadMoreData} />
+                        </View>
+                    )}
+                </View>
             </View>
-        </View>
+        </ScrollView>
     );
 }
 

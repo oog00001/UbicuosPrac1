@@ -5,7 +5,7 @@ import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
-import { onSnapshot, query, orderBy } from "firebase/firestore";
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface LocationData {
     city: string;
@@ -27,9 +27,9 @@ export default function Ubicacion() {
             title: 'Ubicación',
             headerLeft: () => (
                 <FontAwesome5
-                    name="arrow-left"
+                    name='arrow-left'
                     size={20}
-                    color="white"
+                    color='white'
                     style={{ marginLeft: 20, marginRight: 30 }}
                     onPress={() => navigation.goBack()}
                 />
@@ -38,8 +38,8 @@ export default function Ubicacion() {
     }, [navigation]);
 
     useEffect(() => {
-        const accelCollection = collection(db, "acelerometro");
-        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+        const accelCollection = collection(db, 'acelerometro');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
 
         const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => doc.data() as LocationData);
@@ -60,7 +60,7 @@ export default function Ubicacion() {
         <View style={styles.screen}>
             <View style={styles.container}>
                 <View style={styles.titleContent}>
-                    <Ionicons name="location" size={20} style={styles.icon} />
+                    <Ionicons name='location' size={20} style={styles.icon} />
                     <Text style={styles.title}>{location.city}</Text>
                 </View>
                 <Text style={styles.dataText}>Latitud: {isFinite(location.latitude) ? location.latitude.toFixed(4) : 'N/A'}</Text>

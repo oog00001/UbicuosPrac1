@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Button } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Button, ScrollView } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
-import { onSnapshot, query, orderBy } from "firebase/firestore";
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface AccelerometerData {
     x: number;
@@ -51,17 +51,14 @@ export default function Acelerometro() {
         });
     }, [accelData]);
 
-    //fireBase
-    // Cargar datos de Firebase
     useEffect(() => {
-        const accelCollection = collection(db, "acelerometro");
-        const accelQuery = query(accelCollection, orderBy("timestamp", "asc"));
+        const accelCollection = collection(db, 'acelerometro');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
     
         const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => doc.data() as AccelerometerData);
             setFirebaseData(data);
     
-            // Solo actualizar displayedData si aún no se han cargado más datos
             setDisplayedData((prevDisplayedData) => 
                 prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
             );
@@ -70,7 +67,6 @@ export default function Acelerometro() {
         return () => unsubscribe();
     }, []);
 
-    // Función para cargar más datos
     const loadMoreData = () => {
         const nextIndex = currentIndex + 20;
         const newData = firebaseData.slice(0, nextIndex);
@@ -81,16 +77,8 @@ export default function Acelerometro() {
         }
     };
 
-    const renderItem = useCallback(({ item }: { item: AccelerometerData }) => (
-        <View style={styles.row}>
-            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
-            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
-            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
-        </View>
-    ), []);
-
     return (
-        <View style={styles.screen}>
+        <ScrollView style={styles.screen} keyboardShouldPersistTaps='handled' contentContainerStyle={{ paddingBottom: 30 }}>
             <View
                 style={styles.container}
                 onLayout={(event) => {
@@ -105,6 +93,7 @@ export default function Acelerometro() {
                 <Text style={styles.dataText}>X: {(accelData.x * 10).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Y: {(accelData.y * 10).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Z: {(accelData.z * 10).toFixed(5)} m/s²</Text>
+    
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
@@ -127,28 +116,28 @@ export default function Acelerometro() {
                             labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             style: { borderRadius: 16 },
                             propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
-                            propsForLabels: {
-                                fontSize: 10,
-                            }
+                            propsForLabels: { fontSize: 10 },
                         }}
                         bezier
                     />
                 )}
+    
                 <Text style={styles.historyText}>Histórico:</Text>
-                <FlatList
-                    data={displayedData}
-                    keyExtractor={(item) => item.timestamp || Math.random().toString()}
-                    renderItem={renderItem}
-                    getItemLayout={(_, index) => ({ length: 40, offset: 40 * index, index })}
-                    initialNumToRender={20}
-                    maxToRenderPerBatch={20}
-                    removeClippedSubviews
-                    ListFooterComponent={firebaseData.length > displayedData.length ? (
-                        <Button title="Cargar más" onPress={loadMoreData} />
-                    ) : null}
-                />
+                <View>
+                    {displayedData.map((item, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
+                        </View>
+                    ))}
+                </View>
+    
+                {firebaseData.length > displayedData.length && (
+                    <Button title='Cargar más' onPress={loadMoreData} />
+                )}
             </View>
-        </View>
+        </ScrollView>
     );
 }
 

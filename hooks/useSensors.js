@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from 'react';
 import { Accelerometer, Magnetometer, Gyroscope, DeviceMotion, LightSensor } from 'expo-sensors';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
@@ -41,7 +41,6 @@ const useSensors = () => {
     const [lightIntensity, setLightIntensity] = useState(0);
 
     useEffect(() => {
-        // Sensor de luz con verificación de valor
         const subscribe = () => {
             LightSensor.addListener((data) => {
                 setLightIntensity((prev) =>
@@ -61,7 +60,6 @@ const useSensors = () => {
         return (radianes * 180) / Math.PI;
     };
 
-    // Función para normalizar el valor entre -360 y 360
     const normalizarRango = (valor) => {
         let grados = valor % 360;
         if (grados > 180) {
@@ -82,7 +80,6 @@ const useSensors = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            // Acelerómetro con verificación
             Accelerometer.setUpdateInterval(2000);
             accelSubscriptionRef.current = Accelerometer.addListener((data) => {
                 setAccelData((prev) =>
@@ -92,7 +89,6 @@ const useSensors = () => {
                 );
             });
 
-            // Magnetómetro con verificación
             Magnetometer.setUpdateInterval(2000);
             magSubscriptionRef.current = Magnetometer.addListener((data) => {
                 setMagData((prev) =>
@@ -102,27 +98,23 @@ const useSensors = () => {
                 );
             });
 
-            // Ubicación
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status === 'granted') {
                 const loc = await Location.getCurrentPositionAsync({});
                 const { latitude, longitude, accuracy, altitude, heading, speed } = loc.coords;
 
-                // Obtención de la ciudad mediante geocodificación inversa
                 let city = '';
                 try {
                     const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
                     if (geo && geo.length > 0) {
-                        // Se obtiene la ciudad o, en su defecto, la región
                         city = geo[0].city || geo[0].region || '';
                     }
                 } catch (error) {
-                    console.error("Error al obtener la ciudad:", error);
+                    console.error('Error al obtener la ciudad:', error);
                 }
 
                 setLocation((prev) => {
                     const newLoc = { city, latitude, longitude, accuracy, altitude, heading, speed };
-                    // Verificar que algún valor haya cambiado antes de actualizar el estado
                     if (
                         prev.city === newLoc.city &&
                         prev.latitude === newLoc.latitude &&
@@ -138,7 +130,6 @@ const useSensors = () => {
                 });
             }
 
-            // Giroscopio con verificación
             Gyroscope.setUpdateInterval(2000);
             gyroSubscriptionRef.current = Gyroscope.addListener((data) => {
                 setGyroData((prev) =>
@@ -148,7 +139,6 @@ const useSensors = () => {
                 );
             });
 
-            // DeviceMotion (orientación y gravedad)
             const isAvailable = await DeviceMotion.isAvailableAsync();
             if (isAvailable) {
                 DeviceMotion.setUpdateInterval(2000);
@@ -248,7 +238,6 @@ const useSensors = () => {
                 prev === lowPowerModeText ? prev : lowPowerModeText
             );
 
-            // WiFi y red
             const newIpData = await Network.getIpAddressAsync();
             setIpData((prev) => (prev === newIpData ? prev : newIpData));
 
