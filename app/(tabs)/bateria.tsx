@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
 import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 interface BatteryData {
     level: number;
@@ -118,7 +119,10 @@ export default function BatteryFuncion() {
                 <View>
                     {displayedData.map((item, index) => (
                         <View key={index} style={styles.row}>
-                            <Text style={styles.cell}>Nivel: {Math.floor(item.level)}</Text>
+                            <Text style={styles.cell}>
+                                {format(new Date(item.timestamp), "yyyy-MM-dd HH:mm:ss")}
+                            </Text>
+                            <Text style={styles.cell}>Nivel: {item.nivel}</Text>
                         </View>
                     ))}
 

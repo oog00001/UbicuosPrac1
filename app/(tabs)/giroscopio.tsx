@@ -5,7 +5,8 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
-import { onSnapshot, query, orderBy } from "firebase/firestore";
+import { onSnapshot, query, orderBy } from 'firebase/firestore;
+import { format } from 'date-fns';
 
 interface GyroscopioData {
     x: number;
@@ -123,6 +124,9 @@ export default function Giroscopio() {
                 <View>
                     {displayedData.map((item, index) => (
                         <View key={index} style={styles.row}>
+                            <Text style={styles.cell}>
+                                {format(new Date(item.timestamp), "yyyy-MM-dd HH:mm:ss")}
+                            </Text>
                             <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
                             <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
                             <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>

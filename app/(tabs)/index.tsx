@@ -24,7 +24,7 @@ export default function SensorsScreen() {
 
     if (
       sensorData !== prevSensorDataRef.current &&
-      currentTime - lastSentTime >= 100000
+      currentTime - lastSentTime >= 2000
     ) {
       prevSensorDataRef.current = sensorData;
       setLastSentTime(currentTime);

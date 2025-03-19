@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
 import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 interface InternateData {
     ipData: string;
@@ -79,11 +80,12 @@ export default function Internet() {
                 <View>
                     {displayedData.map((item, index) => (
                         <View key={index} style={styles.row}>
+                            <Text style={styles.cell}>
+                                {format(new Date(item.timestamp), "yyyy-MM-dd HH:mm:ss")}
+                            </Text>
                             <Text style={styles.cell}>Conexión: {item.conexion} </Text>
-                            <Text style={styles.cell}>Tipo de conexión: {item.tipoConexion}</Text>
-                            <Text style={styles.cell}>Dirección IP: {item.ipData} </Text>
-                            <Text style={styles.cell}>Es accesible Internet: {item.accesible} </Text>
-                            <Text style={styles.cell}>Modo avión activo: {item.avion} </Text>
+                            <Text style={styles.cell}>Tipo: {item.tipoConexion}</Text>
+                            <Text style={styles.cell}>IP: {item.ipData} </Text>
                         </View>
                     ))}
 

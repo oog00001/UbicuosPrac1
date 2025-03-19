@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
 import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 interface vectorRotacionData {
     alpha: number;
@@ -122,9 +123,12 @@ export default function VectorRotacion() {
                 <View>
                     {displayedData.map((item, index) => (
                         <View key={index} style={styles.row}>
-                            <Text style={styles.cell}>X: {item.z.toFixed(3)}</Text>
-                            <Text style={styles.cell}>Y: {item.x.toFixed(3)}</Text>
-                            <Text style={styles.cell}>Z: {item.y.toFixed(3)}</Text>
+                            <Text style={styles.cell}>
+                                {format(new Date(item.timestamp), "yyyy-MM-dd HH:mm:ss")}
+                            </Text>
+                            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
                         </View>
                     ))}
 

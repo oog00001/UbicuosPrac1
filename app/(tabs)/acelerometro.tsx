@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
 import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 interface AccelerometerData {
     x: number;
@@ -54,16 +55,16 @@ export default function Acelerometro() {
     useEffect(() => {
         const accelCollection = collection(db, 'acelerometro');
         const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
-    
+
         const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => doc.data() as AccelerometerData);
             setFirebaseData(data);
-    
-            setDisplayedData((prevDisplayedData) => 
+
+            setDisplayedData((prevDisplayedData) =>
                 prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
             );
         });
-    
+
         return () => unsubscribe();
     }, []);
 
@@ -93,7 +94,7 @@ export default function Acelerometro() {
                 <Text style={styles.dataText}>X: {(accelData.x * 10).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Y: {(accelData.y * 10).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Z: {(accelData.z * 10).toFixed(5)} m/s²</Text>
-    
+
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
@@ -121,18 +122,21 @@ export default function Acelerometro() {
                         bezier
                     />
                 )}
-    
+
                 <Text style={styles.historyText}>Histórico:</Text>
                 <View>
                     {displayedData.map((item, index) => (
                         <View key={index} style={styles.row}>
+                            <Text style={styles.cell}>
+                                {format(new Date(item.timestamp), "yyyy-MM-dd HH:mm:ss")}
+                            </Text>
                             <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
                             <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
                             <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
                         </View>
                     ))}
                 </View>
-    
+
                 {firebaseData.length > displayedData.length && (
                     <Button title='Cargar más' onPress={loadMoreData} />
                 )}
