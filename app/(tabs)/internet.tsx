@@ -1,82 +1,71 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Network from 'expo-network';
+import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
+interface InternateData {
+    ipData: string;
+    tipoConexion: string;
+    conexion: string;
+    accesible: string;
+    avion: string;
+}
 
 export default function Internet() {
-    const [ipData, setIpData] = useState('');
-    const [tipoConexion, setTipoConexion] = useState('');
-    const [conexion, setConexion] = useState('');
-    const [accesible, setAccesible] = useState('');
-    const [avion, setavion] = useState('');
-    const [containerWidth, setContainerWidth] = useState<number>(0);
-    const inetnetSubscriptionRef = useRef<any>(null);
+    const { ipData, tipoConexion, conexion, accesible, avion } = useSensors();
     const navigation = useNavigation();
+
+    const [firebaseData, setFirebaseData] = useState<InternateData[]>([]);
+    const [displayedData, setDisplayedData] = useState<InternateData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Internet",
+            title: 'Internet',
             headerLeft: () => (
                 <FontAwesome5
-                    name="arrow-left"
+                    name='arrow-left'
                     size={20}
-                    color="white"
+                    color='white'
                     style={{ marginLeft: 20, marginRight: 30 }}
                     onPress={() => navigation.goBack()}
                 />
             ),
         });
-
-
-        const asincronia = async () => {
-            setIpData(await Network.getIpAddressAsync());
-                  const tipoCon = await Network.getNetworkStateAsync();
-                  let tipoConexionText = '';
-                  if (tipoCon.type) {
-                    switch (tipoCon.type.toLowerCase()) {
-                      case 'wifi':
-                        tipoConexionText = 'WiFi';
-                        break;
-                      case 'cellular':
-                        tipoConexionText = 'datos móviles';
-                        break;
-                      case 'unknown':
-                        tipoConexionText = 'desconocido';
-                        break;
-                      case 'none':
-                        tipoConexionText = 'sin conexión';
-                        break;
-                      default:
-                        tipoConexionText = 'desconocida';
-                    }
-                    setTipoConexion(tipoConexionText);
-                  }
-                  setConexion(tipoCon.isConnected ? 'sí' : 'no');
-
-                  setAccesible(tipoCon.isInternetReachable ? 'sí' : 'no');
-                  const nn = await Network.isAirplaneModeEnabledAsync();
-                  setavion(nn ? 'sí' : 'no');
-
-        };
-        asincronia();
-        return () => {
-            if (inetnetSubscriptionRef.current) inetnetSubscriptionRef.current.remove();
-        };
     }, [navigation]);
 
+    useEffect(() => {
+        const accelCollection = collection(db, 'internet');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
+
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as InternateData);
+            setFirebaseData(data);
+
+            setDisplayedData((prevDisplayedData) =>
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
+
     return (
-        <View style={styles.screen}>
-            <View
-                style={styles.container}
-                onLayout={(event) => {
-                    const { width } = event.nativeEvent.layout;
-                    setContainerWidth(width);
-                }}
-            >
+        <ScrollView style={styles.screen} keyboardShouldPersistTaps='handled' contentContainerStyle={{ paddingBottom: 30 }}>
+            <View style={styles.container}>
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='wifi' size={20} style={styles.icon} />
                     <Text style={styles.title}>Internet</Text>
@@ -86,9 +75,25 @@ export default function Internet() {
                 <Text style={styles.dataText}>Dirección IP: {ipData} </Text>
                 <Text style={styles.dataText}>Es accesible Internet: {accesible} </Text>
                 <Text style={styles.dataText}>Modo avión activo: {avion} </Text>
-                <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
+                <Text style={styles.historyText}>Histórico:</Text>
+                <View>
+                    {displayedData.map((item, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.cell}> {item.timestamp}</Text>
+                            <Text style={styles.cell}>Conexión: {item.conexion} </Text>
+                            <Text style={styles.cell}>Tipo: {item.tipoConexion}</Text>
+                            <Text style={styles.cell}>IP: {item.ipData} </Text>
+                        </View>
+                    ))}
+
+                    {firebaseData.length > displayedData.length && (
+                        <View style={{ marginTop: 10, marginBottom: 20 }}>
+                            <Button title='Cargar más' onPress={loadMoreData} />
+                        </View>
+                    )}
+                </View>
             </View>
-        </View>
+        </ScrollView>
     );
 }
 
@@ -129,5 +134,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 15,
         fontWeight: 'bold',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });
