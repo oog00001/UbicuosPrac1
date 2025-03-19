@@ -1,93 +1,78 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Battery from 'expo-battery';
+import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface BatteryData {
     level: number;
 }
 
 export default function BatteryFuncion() {
-
-    const [batteryLevel, setBatteryLevel] = useState(0);
-    const [batteryState, setBatteryState] = useState('');
-    const [lowPowerMode, setLowPowerMode] = useState('');
-
+    const { batteryLevel, batteryState, lowPowerMode } = useSensors();
     const [batteryHistory, setBatteryHistory] = useState<BatteryData[]>(
-        Array.from({ length: 20 }, () => ({ level: 0}))
+        Array.from({ length: 20 }, () => ({ level: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const BatterySubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
+
+    const [firebaseData, setFirebaseData] = useState<BatteryData[]>([]);
+    const [displayedData, setDisplayedData] = useState<BatteryData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Bateria",
+            title: 'Batería',
             headerLeft: () => (
                 <FontAwesome5
-                    name="arrow-left"
+                    name='arrow-left'
                     size={20}
-                    color="white"
+                    color='white'
                     style={{ marginLeft: 20, marginRight: 30 }}
                     onPress={() => navigation.goBack()}
                 />
             ),
         });
 
+        setBatteryHistory(prevHistory => {
+            if (!isFinite(batteryLevel)) return prevHistory;
+            const updatedHistory = [...prevHistory, { level: batteryLevel }];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
-        const asincronia = async () => {
-            const batteryLevelValue = await Battery.getBatteryLevelAsync();
-            setBatteryLevel(batteryLevelValue * 100);
-            
-            const batteryStateValue = await Battery.getBatteryStateAsync();
-                  let batteryStateText = '';
-                  switch (batteryStateValue) {
-                    case Battery.BatteryState.CHARGING:
-                      batteryStateText = 'cargando';
-                      break;
-                    case Battery.BatteryState.FULL:
-                      batteryStateText = 'batería llena';
-                      break;
-                    case Battery.BatteryState.UNPLUGGED:
-                      batteryStateText = 'descarga';
-                      break;
-                    default:
-                      batteryStateText = 'desconocido';
-                  }
-                  setBatteryState(batteryStateText);
-            
-            const lowPowerModeValue = await Battery.isLowPowerModeEnabledAsync();
-            
-                let lowPowerModeText = '';
-                if (!lowPowerModeValue) {
-                    lowPowerModeText = 'desactivado';
-                } else {
-                    lowPowerModeText = 'activado';
-                }
-                setLowPowerMode(lowPowerModeText);
+    }, [navigation, batteryLevel]);
 
-                let valor = { level: 0 };
-                valor.level = batteryLevelValue * 100;
+    useEffect(() => {
+        const accelCollection = collection(db, 'bateria');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
 
-                setBatteryHistory(prevHistory => {
-                    if (!isFinite(batteryLevelValue * 100)) return prevHistory;
-                    const updatedHistory = [...prevHistory, valor];
-                    return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                });
-        };
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as BatteryData);
+            setFirebaseData(data);
 
-        asincronia();
+            setDisplayedData((prevDisplayedData) =>
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
 
-        return () => {
-            if (BatterySubscriptionRef.current) BatterySubscriptionRef.current.remove();
-        };
-    }, [navigation]);
+        return () => unsubscribe();
+    }, []);
+
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
 
     return (
-        <View style={styles.screen}>
+        <ScrollView style={styles.screen} keyboardShouldPersistTaps='handled' contentContainerStyle={{ paddingBottom: 30 }}>
             <View
                 style={styles.container}
                 onLayout={(event) => {
@@ -97,11 +82,11 @@ export default function BatteryFuncion() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='battery-half' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Bateria</Text>
+                    <Text style={styles.title}>Batería</Text>
                 </View>
                 <Text style={styles.dataText}>Nivel: {Math.floor(batteryLevel)}%</Text>
                 <Text style={styles.dataText}>Estado: {batteryState}</Text>
-                <Text style={styles.dataText}>Ahorro de energia: {String(lowPowerMode)}</Text>
+                <Text style={styles.dataText}>Ahorro de energía: {String(lowPowerMode)}</Text>
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
@@ -130,8 +115,22 @@ export default function BatteryFuncion() {
                     />
                 )}
                 <Text style={styles.historyText}>Histórico:</Text>
+                <View>
+                    {displayedData.map((item, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.cell}> {item.timestamp}</Text>
+                            <Text style={styles.cell}>Nivel: {item.nivel}</Text>
+                        </View>
+                    ))}
+
+                    {firebaseData.length > displayedData.length && (
+                        <View style={{ marginTop: 10, marginBottom: 20 }}>
+                            <Button title='Cargar más' onPress={loadMoreData} />
+                        </View>
+                    )}
+                </View>
             </View>
-        </View>
+        </ScrollView>
     );
 }
 
@@ -172,5 +171,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 15,
         fontWeight: 'bold',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });
