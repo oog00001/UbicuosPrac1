@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface OrientationData {
     x: number;
@@ -12,36 +14,25 @@ interface OrientationData {
 }
 
 export default function Orientacion() {
-    const [orientation, setOrientation] = useState({ x: 0, y: 0, z: 0 });
+    const { orientation } = useSensors();
     const [oriHistory, setOriHistory] = useState<OrientationData[]>(
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const oriSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
 
-    const radianesAGrados = (radianes: number) => {
-        return (radianes * 180) / Math.PI;
-      };
-
-    const normalizarRango = (valor: number) => {
-        let grados = valor % 360;
-        if (grados > 180) {
-          grados -= 360;
-        } else if (grados < -180) {
-          grados += 360;
-        }
-        return grados;
-      };
+    const [firebaseData, setFirebaseData] = useState<OrientationData[]>([]);
+    const [displayedData, setDisplayedData] = useState<OrientationData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Orientacion",
+            title: 'Orientación',
             headerLeft: () => (
                 <FontAwesome5
-                    name="arrow-left"
+                    name='arrow-left'
                     size={20}
-                    color="white"
+                    color='white'
                     style={{ marginLeft: 20, marginRight: 30 }}
                     onPress={() => navigation.goBack()}
                 />
@@ -49,39 +40,42 @@ export default function Orientacion() {
         });
 
 
-        const asincronia = async () => {
-            const isAvailable = await DeviceMotion.isAvailableAsync();
-            if (isAvailable) {
-                DeviceMotion.setUpdateInterval(500);
-                oriSubscriptionRef.current = DeviceMotion.addListener((data) => {
-                    if (data.rotation) {
-                        setOrientation({
-                            z: normalizarRango(radianesAGrados(data.rotation.alpha)),
-                            x: normalizarRango(radianesAGrados(data.rotation.beta)),
-                            y: normalizarRango(radianesAGrados(data.rotation.gamma)),
-                        });
+        setOriHistory(prevHistory => {
+            if (!isFinite(orientation.x) || !isFinite(orientation.y) || !isFinite(orientation.z)) return prevHistory;
+            const updatedHistory = [...prevHistory, orientation];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
-                        setOriHistory(prevHistory => {
-                            if (!isFinite(normalizarRango(radianesAGrados(data.rotation.beta))) || !isFinite(normalizarRango(radianesAGrados(data.rotation.gamma))) || !isFinite(normalizarRango(radianesAGrados(data.rotation.alpha)))) return prevHistory;
-                            const updatedHistory = [...prevHistory, orientation];
-                            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                        });
-                    }
-                });
-            }
-        };
+    }, [navigation, orientation]);
 
-        asincronia();
+    useEffect(() => {
+        const accelCollection = collection(db, 'orientacion');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
 
-        return () => {
-            if (oriSubscriptionRef.current) oriSubscriptionRef.current.remove();
-        };
-    }, [navigation]);
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as OrientationData);
+            setFirebaseData(data);
 
-    
+            setDisplayedData((prevDisplayedData) =>
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
 
     return (
-        <View style={styles.screen}>
+        <ScrollView style={styles.screen} keyboardShouldPersistTaps='handled' contentContainerStyle={{ paddingBottom: 30 }}>
             <View
                 style={styles.container}
                 onLayout={(event) => {
@@ -91,7 +85,7 @@ export default function Orientacion() {
             >
                 <View style={styles.titleContent}>
                     <FontAwesome5 name='compass' size={20} style={styles.icon} />
-                    <Text style={styles.title}>Orientacion</Text>
+                    <Text style={styles.title}>Orientación</Text>
                 </View>
                 <Text style={styles.dataText}>X: {(orientation.x).toFixed(5)} °</Text>
                 <Text style={styles.dataText}>Y: {(orientation.y).toFixed(5)} °</Text>
@@ -126,8 +120,24 @@ export default function Orientacion() {
                     />
                 )}
                 <Text style={styles.historyText}>Histórico:</Text>
+                <View>
+                    {displayedData.map((item, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.cell}> {item.timestamp}</Text>
+                            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
+                        </View>
+                    ))}
+
+                    {firebaseData.length > displayedData.length && (
+                        <View style={{ marginTop: 10, marginBottom: 20 }}>
+                            <Button title='Cargar más' onPress={loadMoreData} />
+                        </View>
+                    )}
+                </View>
             </View>
-        </View>
+        </ScrollView>
     );
 }
 
@@ -168,5 +178,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 15,
         fontWeight: 'bold',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });
