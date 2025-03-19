@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { DeviceMotion } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface vectorRotacionData {
     alpha: number;
@@ -12,58 +14,67 @@ interface vectorRotacionData {
 }
 
 export default function VectorRotacion() {
-    const [vectorRotacionData, setVectorRotacionData] = useState({ alpha: 0, beta: 0, gamma: 0 });
+    const { vectorRotacionData } = useSensors();
     const [vectorRotacionHistory, setVectorRotacionHistory] = useState<vectorRotacionData[]>(
         Array.from({ length: 20 }, () => ({ alpha: 0, beta: 0, gamma: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const vectorLinealSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
+
+    const [firebaseData, setFirebaseData] = useState<vectorRotacionData[]>([]);
+    const [displayedData, setDisplayedData] = useState<vectorRotacionData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
 
     useEffect(() => {
         navigation.setOptions({
-            title: "Tasa de rotación",
+            title: 'Tasa de rotación',
             headerLeft: () => (
                 <FontAwesome5
-                    name="arrow-left"
+                    name='arrow-left'
                     size={20}
-                    color="white"
+                    color='white'
                     style={{ marginLeft: 20, marginRight: 30 }}
                     onPress={() => navigation.goBack()}
                 />
             ),
         });
 
+        setVectorRotacionHistory(prevHistory => {
+            if (!isFinite(vectorRotacionData.alpha) || !isFinite(vectorRotacionData.beta) || !isFinite(vectorRotacionData.gamma)) return prevHistory;
+            const updatedHistory = [...prevHistory, vectorRotacionData];
+            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
+        });
 
-        const asincronia = async () => {
-            const isAvailable = await DeviceMotion.isAvailableAsync();
-            if (isAvailable) {
-                DeviceMotion.setUpdateInterval(500);
-                vectorLinealSubscriptionRef.current = DeviceMotion.addListener((data) => {
-                    if (data.rotationRate) {
-                        setVectorRotacionData(data.rotationRate);
-                        let alphaP = data.rotationRate.alpha;
-                        let betaP = data.rotationRate.beta;
-                        let gammaP = data.rotationRate.gamma;
-                        setVectorRotacionHistory(prevHistory => {
-                            if (!isFinite(alphaP) || !isFinite(betaP) || !isFinite(gammaP)) return prevHistory;
-                            const updatedHistory = [...prevHistory, vectorRotacionData];
-                            return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-                        });
-                    }
-                });
-            }
-        };
+    }, [navigation, vectorRotacionData]);
 
-        asincronia();
+    useEffect(() => {
+        const accelCollection = collection(db, 'vector_rotacion');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
 
-        return () => {
-            if (vectorLinealSubscriptionRef.current) vectorLinealSubscriptionRef.current.remove();
-        };
-    }, [navigation]);
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as vectorRotacionData);
+            setFirebaseData(data);
+
+            setDisplayedData((prevDisplayedData) =>
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
 
     return (
-        <View style={styles.screen}>
+        <ScrollView style={styles.screen} keyboardShouldPersistTaps='handled' contentContainerStyle={{ paddingBottom: 30 }}>
             <View
                 style={styles.container}
                 onLayout={(event) => {
@@ -84,9 +95,9 @@ export default function VectorRotacion() {
                         data={{
                             labels: [],
                             datasets: [
-                                { data: vectorRotacionHistory.map(d => isFinite(d.beta) ? d.beta  : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: vectorRotacionHistory.map(d => isFinite(d.gamma) ? d.gamma  : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
-                                { data: vectorRotacionHistory.map(d => isFinite(d.alpha) ? d.alpha  : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
+                                { data: vectorRotacionHistory.map(d => isFinite(d.beta) ? d.beta : 0), color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: vectorRotacionHistory.map(d => isFinite(d.gamma) ? d.gamma : 0), color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`, strokeWidth: 2 },
+                                { data: vectorRotacionHistory.map(d => isFinite(d.alpha) ? d.alpha : 0), color: (opacity = 1) => `rgba(0, 0, 255, ${opacity})`, strokeWidth: 2 }
                             ]
                         }}
                         width={containerWidth}
@@ -108,8 +119,24 @@ export default function VectorRotacion() {
                     />
                 )}
                 <Text style={styles.historyText}>Histórico:</Text>
+                <View>
+                    {displayedData.map((item, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.cell}> {item.timestamp}</Text>
+                            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
+                        </View>
+                    ))}
+
+                    {firebaseData.length > displayedData.length && (
+                        <View style={{ marginTop: 10, marginBottom: 20 }}>
+                            <Button title='Cargar más' onPress={loadMoreData} />
+                        </View>
+                    )}
+                </View>
             </View>
-        </View>
+        </ScrollView>
     );
 }
 
@@ -150,5 +177,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 15,
         fontWeight: 'bold',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });
