@@ -206,7 +206,6 @@ const useSensors = () => {
 
     useEffect(() => {
         const fetchBattery = async () => {
-            // Batería
             const batteryLevelValue = await Battery.getBatteryLevelAsync();
             setBatteryLevel((prev) =>
                 prev === batteryLevelValue * 100 ? prev : batteryLevelValue * 100
