@@ -10,20 +10,25 @@ import useSensors from '../../hooks/useSensors';
 export default function SensorsScreen() {
   const navigation = useNavigation();
   const sensorData = useSensors();
-  const prevSensorDataRef = useRef(sensorData); // Para almacenar el valor anterior de los datos del sensor
-  const [lastSentTime, setLastSentTime] = useState(Date.now()); // Para almacenar el último momento en que enviamos los datos
+  const prevSensorDataRef = useRef(sensorData);
+  const [lastSentTime, setLastSentTime] = useState(Date.now());
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Sensores',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     const currentTime = Date.now();
 
-    // Verifica si los datos han cambiado y han pasado al menos 10 segundos
     if (
       sensorData !== prevSensorDataRef.current &&
-      currentTime - lastSentTime >= 10000
+      currentTime - lastSentTime >= 2000
     ) {
-      prevSensorDataRef.current = sensorData; // Actualiza el valor anterior
-      setLastSentTime(currentTime); // Actualiza el último momento de envío
-      sendSensorDataToFirebase(); // Envía los datos a Firebase
+      prevSensorDataRef.current = sensorData;
+      setLastSentTime(currentTime);
+      sendSensorDataToFirebase();
     }
   }, [sensorData, lastSentTime]);
 
@@ -119,7 +124,6 @@ export default function SensorsScreen() {
   return (
     <ScrollView style={styles.container}>
 
-      {/* Acelerómetro */}
       <TouchableOpacity onPress={() => navigation.navigate('acelerometro')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -137,7 +141,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Campo Magnético */}
       <TouchableOpacity onPress={() => navigation.navigate('magnetometro')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -155,7 +158,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Ubicación */}
       <TouchableOpacity onPress={() => navigation.navigate('ubicacion')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -179,7 +181,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Orientacion */}
       <TouchableOpacity onPress={() => navigation.navigate('orientacion')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -197,7 +198,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* giroscopio */}
       <TouchableOpacity onPress={() => navigation.navigate('giroscopio')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -215,7 +215,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Gravedad */}
       <TouchableOpacity onPress={() => navigation.navigate('gravedad')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -233,7 +232,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Aceleracion lineal */}
       <TouchableOpacity onPress={() => navigation.navigate('vector_lineal')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -251,7 +249,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Tasa de rotacion */}
       <TouchableOpacity onPress={() => navigation.navigate('vector_rotacion')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -269,7 +266,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Bateria */}
       <TouchableOpacity onPress={() => navigation.navigate('bateria')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -287,7 +283,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Internet */}
       <TouchableOpacity onPress={() => navigation.navigate('internet')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -305,7 +300,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Luz */}
       <TouchableOpacity onPress={() => navigation.navigate('luz')}>
         <Card style={styles.card}>
           <Card.Content>
@@ -321,7 +315,6 @@ export default function SensorsScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* Fecha y hora*/}
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.titleContainer}>
