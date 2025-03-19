@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Button, ScrollView } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Accelerometer } from 'expo-sensors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
+import { db, collection } from './firebaseConfig';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 
 interface AccelerometerData {
     x: number;
@@ -18,8 +19,11 @@ export default function Acelerometro() {
         Array.from({ length: 20 }, () => ({ x: 0, y: 0, z: 0 }))
     );
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const accelSubscriptionRef = useRef<any>(null);
     const navigation = useNavigation();
+
+    const [firebaseData, setFirebaseData] = useState<AccelerometerData[]>([]);
+    const [displayedData, setDisplayedData] = useState<AccelerometerData[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(20);
 
     useEffect(() => {
         navigation.setOptions({
@@ -35,18 +39,6 @@ export default function Acelerometro() {
             ),
         });
 
-        Accelerometer.setUpdateInterval(500);
-        accelSubscriptionRef.current = Accelerometer.addListener((data: AccelerometerData) => {
-            setAccelHistory(prevHistory => {
-                if (!isFinite(data.x) || !isFinite(data.y) || !isFinite(data.z)) return prevHistory;
-                const updatedHistory = [...prevHistory, data];
-                return updatedHistory.length > 20 ? updatedHistory.slice(-20) : updatedHistory;
-            });
-        });
-
-        return () => {
-            if (accelSubscriptionRef.current) accelSubscriptionRef.current.remove();
-        };
     }, [navigation]);
 
     useEffect(() => {
@@ -59,8 +51,34 @@ export default function Acelerometro() {
         });
     }, [accelData]);
 
+    useEffect(() => {
+        const accelCollection = collection(db, 'acelerometro');
+        const accelQuery = query(accelCollection, orderBy('timestamp', 'asc'));
+    
+        const unsubscribe = onSnapshot(accelQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as AccelerometerData);
+            setFirebaseData(data);
+    
+            setDisplayedData((prevDisplayedData) => 
+                prevDisplayedData.length > 20 ? prevDisplayedData : data.slice(0, 20)
+            );
+        });
+    
+        return () => unsubscribe();
+    }, []);
+
+    const loadMoreData = () => {
+        const nextIndex = currentIndex + 20;
+        const newData = firebaseData.slice(0, nextIndex);
+
+        if (newData.length > displayedData.length) {
+            setDisplayedData(newData);
+            setCurrentIndex(nextIndex);
+        }
+    };
+
     return (
-        <View style={styles.screen}>
+        <ScrollView style={styles.screen} keyboardShouldPersistTaps='handled' contentContainerStyle={{ paddingBottom: 30 }}>
             <View
                 style={styles.container}
                 onLayout={(event) => {
@@ -75,6 +93,7 @@ export default function Acelerometro() {
                 <Text style={styles.dataText}>X: {(accelData.x * 10).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Y: {(accelData.y * 10).toFixed(5)} m/s²</Text>
                 <Text style={styles.dataText}>Z: {(accelData.z * 10).toFixed(5)} m/s²</Text>
+    
                 <Text style={styles.graphText}>Gráfico en tiempo real:</Text>
                 {containerWidth > 0 && (
                     <LineChart
@@ -97,16 +116,29 @@ export default function Acelerometro() {
                             labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                             style: { borderRadius: 16 },
                             propsForDots: { r: '3', strokeWidth: '2', stroke: '#000' },
-                            propsForLabels: {
-                                fontSize: 10,
-                            }
+                            propsForLabels: { fontSize: 10 },
                         }}
                         bezier
                     />
                 )}
+    
                 <Text style={styles.historyText}>Histórico:</Text>
+                <View>
+                    {displayedData.map((item, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.cell}> {item.timestamp}</Text>
+                            <Text style={styles.cell}>X: {item.x.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Y: {item.y.toFixed(3)}</Text>
+                            <Text style={styles.cell}>Z: {item.z.toFixed(3)}</Text>
+                        </View>
+                    ))}
+                </View>
+    
+                {firebaseData.length > displayedData.length && (
+                    <Button title='Cargar más' onPress={loadMoreData} />
+                )}
             </View>
-        </View>
+        </ScrollView>
     );
 }
 
@@ -147,5 +179,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 15,
         fontWeight: 'bold',
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+    },
+    cell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 16,
     },
 });
