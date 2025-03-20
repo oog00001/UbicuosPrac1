@@ -5,7 +5,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useSensors from '../../hooks/useSensors';
 import { db, collection } from './firebaseConfig';
-import { onSnapshot, query, orderBy } from 'firebase/firestore;
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 interface GyroscopioData {
